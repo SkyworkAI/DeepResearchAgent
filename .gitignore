@@ -180,3 +180,5 @@ data/
 
 # workdir
 workdir/
+
+.idea
