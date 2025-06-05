@@ -13,8 +13,7 @@ from src.exception import (
     AgentGenerationError,
     AgentParsingError,
     AgentToolExecutionError,
-    AgentToolCallError,
-    logger as exception_logger # Use exception logger if it differs
+    AgentToolCallError
 )
 from src.base.async_multistep_agent import (PromptTemplates,
                                             populate_template,
@@ -24,8 +23,8 @@ from src.memory import (ActionStep,
                         AgentMemory)
 from src.logger import (
     LogLevel, 
-    YELLOW_HEX
-    # logger # AsyncMultiStepAgent creates its own self.logger
+    YELLOW_HEX,
+    logger # AsyncMultiStepAgent creates its own self.logger
 )
 from src.models import Model, parse_json_if_needed, ChatMessage
 from src.utils.agent_types import (

@@ -22,12 +22,12 @@ fetch_content = false
 max_length = 50000
 
 [deep_researcher_tool]
-model_id = "Qwen"
+model_id = "Qwen/Qwen3-14B"
 max_depth = 2
 max_insights = 20
 time_limit_seconds = 60
 max_follow_ups = 3
-summarizer_model_id = "Qwen"
+summarizer_model_id = "Qwen/Qwen3-14B"
 
 [browser_tool]
 headless = false
@@ -44,8 +44,8 @@ username = "xxxx"
 password = "xxxx"
 
 [deep_analyzer_tool]
-analyzer_model_ids = ["Qwen"]
-summarizer_model_id = "Qwen"
+analyzer_model_ids = ["Qwen/Qwen3-14B"]
+summarizer_model_id = "Qwen/Qwen3-14B"
 
 # Agent configs
 [agent]
@@ -53,7 +53,7 @@ name = "dra"
 use_hierarchical_agent = true
 
 [agent.planning_agent_config]
-model_id = "Qwen"
+model_id = "Qwen/Qwen3-14B"
 name = "planning_agent"
 description = "A planning agent that can plan the steps to complete the task."
 max_steps = 15
@@ -62,7 +62,7 @@ tools = ["planning"]
 managed_agents = ["deep_analyzer_agent", "browser_use_agent", "deep_researcher_agent"]
 
 [agent.deep_analyzer_agent_config]
-model_id = "Qwen"
+model_id = "Qwen/Qwen3-14B"
 name = "deep_analyzer_agent"
 description = "Performs systematic, step-by-step analysis..."
 max_steps = 3
@@ -70,7 +70,7 @@ template_path = "src/agent/deep_analyzer_agent/prompts/deep_analyzer_agent.yaml"
 tools = ["deep_analyzer", "python_interpreter"]
 
 [agent.browser_use_agent_config]
-model_id = "Qwen"
+model_id = "Qwen/Qwen3-14B"
 name = "browser_use_agent"
 description = "Searches relevant web pages and interacts with them."
 max_steps = 5
@@ -78,7 +78,7 @@ template_path = "src/agent/browser_use_agent/prompts/browser_use_agent.yaml"
 tools = ["auto_browser_use", "python_interpreter"]
 
 [agent.deep_researcher_agent_config]
-model_id = "Qwen"
+model_id = "Qwen/Qwen3-14B"
 name = "deep_researcher_agent"
 description = "Conducts extensive web searches."
 max_steps = 3
