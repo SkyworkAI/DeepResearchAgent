@@ -566,7 +566,7 @@ class DeepResearcherTool(AsyncTool):
         return insights
 
     async def _summary(self, query: str, reference_materials: str) -> str:
-        model = model_manager.registed_models["Qwen/Qwen3-14B"]
+        model = model_manager.registed_models["Qwen"]
 
         messages = [
             {"role": "user", "content": query}

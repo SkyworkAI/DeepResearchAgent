@@ -392,8 +392,8 @@ class ModelManager(metaclass=Singleton):
                                                     remote_api_base_name="QWEN_API_BASE")
         models = [
             {
-                "model_name": "Qwen/Qwen3-14B",
-                "model_id": "Qwen/Qwen3-14B",
+                "model_name": "Qwen",
+                "model_id": "Qwen",
             }
         ]
         for model in models:
