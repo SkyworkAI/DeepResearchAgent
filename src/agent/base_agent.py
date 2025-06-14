@@ -1,3 +1,4 @@
+import os
 from typing import (
     Any,
     Callable,
@@ -31,7 +32,17 @@ from src.utils.agent_types import (
     AgentImage,
 )
 from src.utils import assemble_project_path
+from src.utils.path_utils import assemble_project_path
+from src.memory.memory import AgentMemory  # Remove PromptTemplates from this import
+from src.logger.logger import LogLevel
+import yaml
+from jinja2 import Environment, FileSystemLoader, TemplateNotFound, meta, Template
+from abc import ABC, abstractmethod
+from typing import Any, List, Dict, Union, Optional, Type
 
+from src.logger import logger
+
+from src.memory.memory import ActionStep
 class BaseAgent(AsyncMultiStepAgent):
     """Base class for agents with common logic."""
     AGENT_NAME = "base_agent"  # Must be overridden by subclasses
@@ -79,13 +90,34 @@ class BaseAgent(AsyncMultiStepAgent):
         )
         
         # Loading prompt_templates
-        if prompt_templates:
-            self.prompt_templates = prompt_templates
+        if prompt_templates_path:
+            # template_dir is the directory of the specific agent's prompt file
+            template_dir = os.path.dirname(prompt_templates_path)
+            template_filename = os.path.basename(prompt_templates_path)
+
+            # Determine the common prompts directory relative to this file (base_agent.py)
+            # __file__ is .../src/agent/base_agent.py
+            # common_prompts_dir should be .../src/base/prompts/
+            current_file_dir = os.path.dirname(os.path.abspath(__file__))  # .../src/agent
+            src_dir = os.path.dirname(current_file_dir)  # .../src
+            common_prompts_dir = os.path.join(src_dir, "base", "prompts")
+
+            # Add both the specific agent's template directory and the common prompts directory to the search path
+            # Also adding trim_blocks and lstrip_blocks for cleaner template output
+            env = Environment(
+                loader=FileSystemLoader(searchpath=[template_dir, common_prompts_dir]),
+                trim_blocks=False,
+                lstrip_blocks=False
+            )
+            template = env.get_template(template_filename)
+
+            # expanded_yaml_str = expand_jinja_macros_in_yaml(template)
+            # print(expanded_yaml_str)
+
+            rendered_yaml = template.render()  # You can pass variables here if needed
+            self.prompt_templates = yaml.safe_load(rendered_yaml)
         else:
-            abs_template_path = assemble_project_path(prompt_templates_path)
-            with open(abs_template_path, "r", encoding='utf-8') as f:
-                self.prompt_templates = yaml.safe_load(f)
-        
+            self.prompt_templates = prompt_templates
         self.system_prompt = self.initialize_system_prompt()
         self.user_prompt = self.initialize_user_prompt()
 
