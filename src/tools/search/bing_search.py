@@ -3,8 +3,7 @@ from typing import List, Optional, Tuple
 import requests
 from bs4 import BeautifulSoup
 
-from src.tools.search.base import WebSearchEngine, SearchItem
-
+from src.tools.search.base import SearchItem, WebSearchEngine
 
 ABSTRACT_MAX_LENGTH = 300
 

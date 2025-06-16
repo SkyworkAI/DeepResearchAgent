@@ -1,9 +1,10 @@
 from typing import Dict, List, Optional
+
 from typing_extensions import Literal
 
+from src.logger import logger
 from src.registry import register_tool
 from src.tools import AsyncTool, ToolResult
-from src.logger import logger
 
 _PLANNING_TOOL_DESCRIPTION = """A planning tool that allows the agent to create and manage plans for solving complex tasks. The tool provides functionality for creating plans, updating plan steps, and tracking progress.
 NOTE:
@@ -11,6 +12,7 @@ NOTE:
 - You must solve the complex task in ≤ 5 steps.
 - `create`: Create a new plan must include a unique plan_id.
 """
+
 
 @register_tool("planning")
 class PlanningTool(AsyncTool):
@@ -79,10 +81,7 @@ class PlanningTool(AsyncTool):
     _current_plan_id: Optional[str] = None  # Track the current active plan
 
     async def _create_plan(
-        self,
-        plan_id: Optional[str],
-        title: Optional[str],
-        steps: Optional[List[str]]
+        self, plan_id: Optional[str], title: Optional[str], steps: Optional[List[str]]
     ):
         """Create a new plan with the given ID, title, and steps."""
         if not plan_id:
@@ -133,7 +132,9 @@ class PlanningTool(AsyncTool):
         self.plans[plan_id] = plan
         self._current_plan_id = plan_id  # Set as active plan
 
-        res = f"Plan created successfully with ID: {plan_id}\n\n{self._format_plan(plan)}"
+        res = (
+            f"Plan created successfully with ID: {plan_id}\n\n{self._format_plan(plan)}"
+        )
         logger.info(res)
 
         return ToolResult(
@@ -142,10 +143,7 @@ class PlanningTool(AsyncTool):
         )
 
     async def _update_plan(
-        self,
-        plan_id: Optional[str],
-        title: Optional[str],
-        steps: Optional[List[str]]
+        self, plan_id: Optional[str], title: Optional[str], steps: Optional[List[str]]
     ) -> ToolResult:
         """Update an existing plan with new title or steps."""
         if not plan_id:
@@ -447,7 +445,9 @@ class PlanningTool(AsyncTool):
         title: Optional[str] = None,
         steps: Optional[List[str]] = None,
         step_index: Optional[int] = None,
-        step_status: Optional[Literal["not_started", "in_progress", "completed", "blocked"]] = None,
+        step_status: Optional[
+            Literal["not_started", "in_progress", "completed", "blocked"]
+        ] = None,
         step_notes: Optional[str] = None,
     ):
         """

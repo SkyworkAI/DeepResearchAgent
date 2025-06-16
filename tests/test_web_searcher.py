@@ -1,20 +1,20 @@
 import warnings
+
 warnings.simplefilter("ignore", DeprecationWarning)
 
-import os
+import asyncio
 import sys
 from pathlib import Path
-import asyncio
 
 root = str(Path(__file__).resolve().parents[1])
 sys.path.append(root)
 
-from src.tools.web_searcher import WebSearcherTool
 from src.models import model_manager
+from src.tools.web_searcher import WebSearcherTool
 
 if __name__ == "__main__":
     model_manager.init_models(use_local_proxy=False)
-    
+
     web_search = WebSearcherTool()
     web_search.fetch_content = True
 
@@ -23,8 +23,9 @@ if __name__ == "__main__":
     """
     instruct = "Please planning the solution step by step and return the final answer only. Do not include any intermediate steps in your final answer."
 
-
-    search_response = asyncio.run(web_search.forward(
-        query=task,
-    ))
+    search_response = asyncio.run(
+        web_search.forward(
+            query=task,
+        )
+    )
     print(search_response.output)

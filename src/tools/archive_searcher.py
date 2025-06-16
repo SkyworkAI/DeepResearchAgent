@@ -1,7 +1,9 @@
+import requests
+
+from src.logger import logger
 from src.tools import AsyncTool, ToolResult
 from src.tools.web_fetcher import WebFetcherTool
-import requests
-from src.logger import logger
+
 
 class ArchiveSearcherTool(AsyncTool):
     name: str = "archive_searcher"
@@ -32,18 +34,23 @@ class ArchiveSearcherTool(AsyncTool):
         response = requests.get(archive_url).json()
         response_notimestamp = requests.get(no_timestamp_url).json()
 
-        if "archived_snapshots" in response and "closest" in response["archived_snapshots"]:
+        if (
+            "archived_snapshots" in response
+            and "closest" in response["archived_snapshots"]
+        ):
             closest = response["archived_snapshots"]["closest"]
             logger.info(f"Archive found! {closest}")
 
-        elif "archived_snapshots" in response_notimestamp and "closest" in response_notimestamp["archived_snapshots"]:
+        elif (
+            "archived_snapshots" in response_notimestamp
+            and "closest" in response_notimestamp["archived_snapshots"]
+        ):
             closest = response_notimestamp["archived_snapshots"]["closest"]
             logger.info(f"Archive found! {closest}")
         else:
             return ToolResult(
-                res = None,
-                error=f"Your {url=} was not archived on Wayback Machine, try a different url."
-
+                res=None,
+                error=f"Your {url=} was not archived on Wayback Machine, try a different url.",
             )
 
         target_url = closest["url"]

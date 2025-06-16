@@ -1,7 +1,6 @@
 import importlib
 import inspect
 import json
-import json5
 import os
 import re
 import tempfile
@@ -10,58 +9,61 @@ import time
 from abc import ABC, abstractmethod
 from collections import deque
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional, Set, Tuple, TypedDict, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Set,
+    TypedDict,
+)
 
 import jinja2
 import yaml
-from huggingface_hub import create_repo, metadata_update, snapshot_download, upload_folder
+from huggingface_hub import (
+    create_repo,
+    metadata_update,
+    snapshot_download,
+    upload_folder,
+)
 from jinja2 import StrictUndefined, Template
 from rich.rule import Rule
 from rich.text import Text
 
-
 if TYPE_CHECKING:
     import PIL.Image
 
-from src.tools.default_tools import TOOL_MAPPING
-from src.tools.final_answer import FinalAnswerTool
-from src.tools.executor.local_python_executor import BASE_BUILTIN_MODULES
-from src.memory import (ActionStep,
-                        AgentMemory,
-                        FinalAnswerStep,
-                        PlanningStep,
-                        SystemPromptStep,
-                        UserPromptStep,
-                        TaskStep,
-                        Message)
-from src.models import (
-    ChatMessage,
-    MessageRole,
-    Model
-)
-from src.logger import (
-    AgentLogger,
-    LogLevel,
-    Monitor,
-)
-
-from src.tools import AsyncTool
 from src.exception import (
     AgentError,
     AgentGenerationError,
     AgentMaxStepsError,
     AgentParsingError,
-
 )
-
+from src.logger import (
+    LogLevel,
+    Monitor,
+    logger,
+)
+from src.memory import (
+    ActionStep,
+    AgentMemory,
+    FinalAnswerStep,
+    Message,
+    PlanningStep,
+    SystemPromptStep,
+    TaskStep,
+    UserPromptStep,
+)
+from src.models import ChatMessage, MessageRole, Model
+from src.tools import AsyncTool
+from src.tools.default_tools import TOOL_MAPPING
+from src.tools.executor.local_python_executor import BASE_BUILTIN_MODULES
+from src.tools.final_answer import FinalAnswerTool
 from src.utils import (
     is_valid_name,
     make_init_file,
     truncate_content,
 )
-
-from src.logger import logger
-from src.config import config
 
 
 def get_variable_names(self, template: str) -> Set[str]:
@@ -75,7 +77,9 @@ def populate_template(template: str, variables: Dict[str, Any]) -> str:
     try:
         return compiled_template.render(**variables)
     except Exception as e:
-        raise Exception(f"Error during jinja template rendering: {type(e).__name__}: {e}")
+        raise Exception(
+            f"Error during jinja template rendering: {type(e).__name__}: {e}"
+        )
 
 
 class PlanningPromptTemplate(TypedDict):
@@ -197,16 +201,17 @@ class AsyncMultiStepAgent(ABC):
         self.model = model
         self.prompt_templates = prompt_templates or EMPTY_PROMPT_TEMPLATES
         if prompt_templates is not None:
-            missing_keys = set(EMPTY_PROMPT_TEMPLATES.keys()) - set(prompt_templates.keys())
-            assert not missing_keys, (
-                f"Some prompt templates are missing from your custom `prompt_templates`: {missing_keys}"
+            missing_keys = set(EMPTY_PROMPT_TEMPLATES.keys()) - set(
+                prompt_templates.keys()
             )
+            assert not missing_keys, f"Some prompt templates are missing from your custom `prompt_templates`: {missing_keys}"
             for key, value in EMPTY_PROMPT_TEMPLATES.items():
                 if isinstance(value, dict):
                     for subkey in value.keys():
-                        assert key in prompt_templates.keys() and (subkey in prompt_templates[key].keys()), (
-                            f"Some prompt templates are missing from your custom `prompt_templates`: {subkey} under {key}"
-                        )
+                        assert (
+                            key in prompt_templates.keys()
+                            and (subkey in prompt_templates[key].keys())
+                        ), f"Some prompt templates are missing from your custom `prompt_templates`: {subkey} under {key}"
 
         self.max_steps = max_steps
         self.step_number = 0
@@ -224,7 +229,7 @@ class AsyncMultiStepAgent(ABC):
 
         self.system_prompt = self.initialize_system_prompt()
         self.user_prompt = self.initialize_user_prompt()
-        
+
         self.task: str | None = None
         self.memory = AgentMemory(self.system_prompt, self.user_prompt)
 
@@ -236,27 +241,32 @@ class AsyncMultiStepAgent(ABC):
 
     def _validate_name(self, name: str | None) -> str | None:
         if name is not None and not is_valid_name(name):
-            raise ValueError(f"Agent name '{name}' must be a valid Python identifier and not a reserved keyword.")
+            raise ValueError(
+                f"Agent name '{name}' must be a valid Python identifier and not a reserved keyword."
+            )
         return name
 
     def _setup_managed_agents(self, managed_agents: list | None = None) -> None:
         """Setup managed agents with proper logging."""
         self.managed_agents = {}
         if managed_agents:
-            assert all(agent.name and agent.description for agent in managed_agents), (
-                "All managed agents need both a name and a description!"
-            )
+            assert all(
+                agent.name and agent.description for agent in managed_agents
+            ), "All managed agents need both a name and a description!"
             self.managed_agents = {agent.name: agent for agent in managed_agents}
 
     def _setup_tools(self, tools, add_base_tools):
-        assert all(isinstance(tool, AsyncTool) for tool in tools), "All elements must be instance of AsyncTool (or a subclass)"
+        assert all(
+            isinstance(tool, AsyncTool) for tool in tools
+        ), "All elements must be instance of AsyncTool (or a subclass)"
         self.tools = {tool.name: tool for tool in tools}
         if add_base_tools:
             self.tools.update(
                 {
                     name: cls()
                     for name, cls in TOOL_MAPPING.items()
-                    if name != "python_interpreter" or self.__class__.__name__ == "ToolCallingAgent"
+                    if name != "python_interpreter"
+                    or self.__class__.__name__ == "ToolCallingAgent"
                 }
             )
         self.tools.setdefault("final_answer", FinalAnswerTool())
@@ -304,10 +314,10 @@ class AsyncMultiStepAgent(ABC):
         """
         max_steps = max_steps or self.max_steps
         self.task = task
-        
+
         # Initialize the task instruction
         self.task = self.initialize_task_instruction()
-        
+
         self.interrupt_switch = False
         if additional_args is not None:
             self.state.update(additional_args)
@@ -319,7 +329,7 @@ You have been provided with these additional arguments, that you can access usin
         self.memory.system_prompt = SystemPromptStep(system_prompt=self.system_prompt)
         self.user_prompt = self.initialize_user_prompt()
         self.memory.user_prompt = UserPromptStep(user_prompt=self.user_prompt)
-        
+
         if reset:
             self.memory.reset()
             self.monitor.reset()
@@ -355,7 +365,8 @@ You have been provided with these additional arguments, that you can access usin
                 raise AgentError("Agent interrupted.", self.logger)
             step_start_time = time.time()
             if self.planning_interval is not None and (
-                self.step_number == 1 or (self.step_number - 1) % self.planning_interval == 0
+                self.step_number == 1
+                or (self.step_number - 1) % self.planning_interval == 0
             ):
                 planning_step = await self._generate_planning_step(
                     task, is_first_step=(self.step_number == 1), step=self.step_number
@@ -363,7 +374,9 @@ You have been provided with these additional arguments, that you can access usin
                 self.memory.steps.append(planning_step)
                 yield planning_step
             action_step = ActionStep(
-                step_number=self.step_number, start_time=step_start_time, observations_images=images
+                step_number=self.step_number,
+                start_time=step_start_time,
+                observations_images=images,
             )
             try:
                 final_answer = await self._execute_step(task, action_step)
@@ -380,7 +393,9 @@ You have been provided with these additional arguments, that you can access usin
                 self.step_number += 1
 
         if final_answer is None and self.step_number == max_steps + 1:
-            final_answer = await self._handle_max_steps_reached(task, images, step_start_time)
+            final_answer = await self._handle_max_steps_reached(
+                task, images, step_start_time
+            )
             yield action_step
         yield FinalAnswerStep(final_answer)
 
@@ -396,33 +411,41 @@ You have been provided with these additional arguments, that you can access usin
             try:
                 assert check_function(final_answer, self.memory)
             except Exception as e:
-                raise AgentError(f"Check {check_function.__name__} failed with error: {e}", self.logger)
+                raise AgentError(
+                    f"Check {check_function.__name__} failed with error: {e}",
+                    self.logger,
+                )
 
     def _finalize_step(self, memory_step: ActionStep, step_start_time: float):
         memory_step.end_time = time.time()
         memory_step.duration = memory_step.end_time - step_start_time
         for callback in self.step_callbacks:
             # For compatibility with old callbacks that don't take the agent as an argument
-            callback(memory_step) if len(inspect.signature(callback).parameters) == 1 else callback(
-                memory_step, agent=self
-            )
+            callback(memory_step) if len(
+                inspect.signature(callback).parameters
+            ) == 1 else callback(memory_step, agent=self)
 
-    async def _handle_max_steps_reached(self, task: str, images: list["PIL.Image.Image"], step_start_time: float) -> Any:
+    async def _handle_max_steps_reached(
+        self, task: str, images: list["PIL.Image.Image"], step_start_time: float
+    ) -> Any:
         final_answer = await self.provide_final_answer(task, images)
         final_memory_step = ActionStep(
-            step_number=self.step_number, error=AgentMaxStepsError("Reached max steps.", self.logger)
+            step_number=self.step_number,
+            error=AgentMaxStepsError("Reached max steps.", self.logger),
         )
         final_memory_step.action_output = final_answer
         final_memory_step.end_time = time.time()
         final_memory_step.duration = final_memory_step.end_time - step_start_time
         self.memory.steps.append(final_memory_step)
         for callback in self.step_callbacks:
-            callback(final_memory_step) if len(inspect.signature(callback).parameters) == 1 else callback(
-                final_memory_step, agent=self
-            )
+            callback(final_memory_step) if len(
+                inspect.signature(callback).parameters
+            ) == 1 else callback(final_memory_step, agent=self)
         return final_answer
 
-    async def _generate_planning_step(self, task, is_first_step: bool, step: int) -> PlanningStep:
+    async def _generate_planning_step(
+        self, task, is_first_step: bool, step: int
+    ) -> PlanningStep:
         if is_first_step:
             input_messages = [
                 {
@@ -432,7 +455,11 @@ You have been provided with these additional arguments, that you can access usin
                             "type": "text",
                             "text": populate_template(
                                 self.prompt_templates["planning"]["initial_plan"],
-                                variables={"task": task, "tools": self.tools, "managed_agents": self.managed_agents},
+                                variables={
+                                    "task": task,
+                                    "tools": self.tools,
+                                    "managed_agents": self.managed_agents,
+                                },
                             ),
                         }
                     ],
@@ -452,7 +479,10 @@ You have been provided with these additional arguments, that you can access usin
                     {
                         "type": "text",
                         "text": populate_template(
-                            self.prompt_templates["planning"]["update_plan_pre_messages"], variables={"task": task}
+                            self.prompt_templates["planning"][
+                                "update_plan_pre_messages"
+                            ],
+                            variables={"task": task},
                         ),
                     }
                 ],
@@ -463,7 +493,9 @@ You have been provided with these additional arguments, that you can access usin
                     {
                         "type": "text",
                         "text": populate_template(
-                            self.prompt_templates["planning"]["update_plan_post_messages"],
+                            self.prompt_templates["planning"][
+                                "update_plan_post_messages"
+                            ],
                             variables={
                                 "task": task,
                                 "tools": self.tools,
@@ -480,7 +512,11 @@ You have been provided with these additional arguments, that you can access usin
                 f"""I still need to solve the task I was given:\n```\n{self.task}\n```\n\nHere are the facts I know and my new/updated plan of action to solve the task:\n```\n{plan_message.content}\n```"""
             )
         log_headline = "Initial plan" if is_first_step else "Updated plan"
-        self.logger.log(Rule(f"[bold]{log_headline}", style="orange"), Text(plan), level=LogLevel.INFO)
+        self.logger.log(
+            Rule(f"[bold]{log_headline}", style="orange"),
+            Text(plan),
+            level=LogLevel.INFO,
+        )
         return PlanningStep(
             model_input_messages=input_messages,
             plan=plan,
@@ -498,17 +534,17 @@ You have been provided with these additional arguments, that you can access usin
     def initialize_system_prompt(self) -> str:
         """To be implemented in child classes"""
         ...
-        
+
     @abstractmethod
     def initialize_user_prompt(self) -> str:
         """To be implemented in child classes"""
         ...
-    
+
     @abstractmethod
     def initialize_task_instruction(self) -> str:
         """To be implemented in child classes"""
         ...
-    
+
     def interrupt(self):
         """Interrupts the agent execution."""
         self.interrupt_switch = True
@@ -553,7 +589,9 @@ You have been provided with these additional arguments, that you can access usin
             )
         return rationale.strip(), action.strip()
 
-    async def provide_final_answer(self, task: str, images: list["PIL.Image.Image"] | None = None) -> str:
+    async def provide_final_answer(
+        self, task: str, images: list["PIL.Image.Image"] | None = None
+    ) -> str:
         """
         Provide the final answer to the task, based on the logs of the agent's interactions.
 
@@ -580,7 +618,6 @@ You have been provided with these additional arguments, that you can access usin
         messages = await self.write_memory_to_messages()
         messages += messages[1:]
 
-
         messages += [
             {
                 "role": MessageRole.USER,
@@ -588,7 +625,8 @@ You have been provided with these additional arguments, that you can access usin
                     {
                         "type": "text",
                         "text": populate_template(
-                            self.prompt_templates["final_answer"]["post_messages"], variables={"task": task}
+                            self.prompt_templates["final_answer"]["post_messages"],
+                            variables={"task": task},
                         ),
                     }
                 ],
@@ -624,7 +662,8 @@ You have been provided with these additional arguments, that you can access usin
         )
         report = await self.run(full_task, **kwargs)
         answer = populate_template(
-            self.prompt_templates["managed_agent"]["report"], variables=dict(name=self.name, final_answer=report)
+            self.prompt_templates["managed_agent"]["report"],
+            variables=dict(name=self.name, final_answer=report),
         )
         if self.provide_run_summary:
             answer += "\n\nFor more detail, find below a summary of this agent's work:\n<summary_of_work>\n"
@@ -658,14 +697,21 @@ You have been provided with these additional arguments, that you can access usin
                 agent_suffix = f"managed_agents.{agent_name}"
                 if relative_path:
                     agent_suffix = relative_path + "." + agent_suffix
-                agent.save(os.path.join(output_dir, "managed_agents", agent_name), relative_path=agent_suffix)
+                agent.save(
+                    os.path.join(output_dir, "managed_agents", agent_name),
+                    relative_path=agent_suffix,
+                )
 
         class_name = self.__class__.__name__
 
         # Save tools to different .py files
         for tool in self.tools.values():
             make_init_file(os.path.join(output_dir, "tools"))
-            tool.save(os.path.join(output_dir, "tools"), tool_file_name=tool.name, make_gradio_app=False)
+            tool.save(
+                os.path.join(output_dir, "tools"),
+                tool_file_name=tool.name,
+                make_gradio_app=False,
+            )
 
         # Save prompts to yaml
         yaml_prompts = yaml.safe_dump(
@@ -684,17 +730,24 @@ You have been provided with these additional arguments, that you can access usin
         # Save agent dictionary to json
         agent_dict = self.to_dict()
         agent_dict["tools"] = [tool.name for tool in self.tools.values()]
-        agent_dict["managed_agents"] = {agent.name: agent.__class__.__name__ for agent in self.managed_agents.values()}
+        agent_dict["managed_agents"] = {
+            agent.name: agent.__class__.__name__
+            for agent in self.managed_agents.values()
+        }
         with open(os.path.join(output_dir, "agent.json"), "w", encoding="utf-8") as f:
             json.dump(agent_dict, f, indent=4, ensure_ascii=False)
 
         # Save requirements
-        with open(os.path.join(output_dir, "requirements.txt"), "w", encoding="utf-8") as f:
+        with open(
+            os.path.join(output_dir, "requirements.txt"), "w", encoding="utf-8"
+        ) as f:
             f.writelines(f"{r}\n" for r in agent_dict["requirements"])
 
         # Make agent.py file with Gradio UI
         agent_name = f"agent_{self.name}" if getattr(self, "name", None) else "agent"
-        managed_agent_relative_path = relative_path + "." if relative_path is not None else ""
+        managed_agent_relative_path = (
+            relative_path + "." if relative_path is not None else ""
+        )
         app_template = textwrap.dedent("""
             import yaml
             import os
@@ -733,9 +786,13 @@ You have been provided with these additional arguments, that you can access usin
             if __name__ == "__main__":
                 GradioUI({{ agent_name }}).launch()
             """).strip()
-        template_env = jinja2.Environment(loader=jinja2.BaseLoader(), undefined=jinja2.StrictUndefined)
+        template_env = jinja2.Environment(
+            loader=jinja2.BaseLoader(), undefined=jinja2.StrictUndefined
+        )
         template_env.filters["repr"] = repr
-        template_env.filters["camelcase"] = lambda value: "".join(word.capitalize() for word in value.split("_"))
+        template_env.filters["camelcase"] = lambda value: "".join(
+            word.capitalize() for word in value.split("_")
+        )
         template = template_env.from_string(app_template)
 
         # Render the app.py file from Jinja2 template
@@ -762,17 +819,30 @@ You have been provided with these additional arguments, that you can access usin
         # TODO: handle serializing step_callbacks and final_answer_checks
         for attr in ["final_answer_checks", "step_callbacks"]:
             if getattr(self, attr, None):
-                self.logger.log(f"This agent has {attr}: they will be ignored by this method.", LogLevel.INFO)
+                self.logger.log(
+                    f"This agent has {attr}: they will be ignored by this method.",
+                    LogLevel.INFO,
+                )
 
         tool_dicts = [tool.to_dict() for tool in self.tools.values()]
-        tool_requirements = {req for tool in self.tools.values() for req in tool.to_dict()["requirements"]}
+        tool_requirements = {
+            req
+            for tool in self.tools.values()
+            for req in tool.to_dict()["requirements"]
+        }
         managed_agents_requirements = {
-            req for managed_agent in self.managed_agents.values() for req in managed_agent.to_dict()["requirements"]
+            req
+            for managed_agent in self.managed_agents.values()
+            for req in managed_agent.to_dict()["requirements"]
         }
         requirements = tool_requirements | managed_agents_requirements
         if hasattr(self, "authorized_imports"):
             requirements.update(
-                {package.split(".")[0] for package in self.authorized_imports if package not in BASE_BUILTIN_MODULES}
+                {
+                    package.split(".")[0]
+                    for package in self.authorized_imports
+                    if package not in BASE_BUILTIN_MODULES
+                }
             )
 
         agent_dict = {
@@ -782,7 +852,10 @@ You have been provided with these additional arguments, that you can access usin
                 "class": self.model.__class__.__name__,
                 "data": self.model.to_dict(),
             },
-            "managed_agents": [managed_agent.to_dict() for managed_agent in self.managed_agents.values()],
+            "managed_agents": [
+                managed_agent.to_dict()
+                for managed_agent in self.managed_agents.values()
+            ],
             "prompt_templates": self.prompt_templates,
             "max_steps": self.max_steps,
             "verbosity_level": int(self.logger.level),
@@ -807,7 +880,9 @@ You have been provided with these additional arguments, that you can access usin
         """
         # Load model
         model_info = agent_dict["model"]
-        model_class = getattr(importlib.import_module("smolagents.models"), model_info["class"])
+        model_class = getattr(
+            importlib.import_module("smolagents.models"), model_info["class"]
+        )
         model = model_class.from_dict(model_info["data"])
         # Load tools
         tools = []
@@ -815,9 +890,17 @@ You have been provided with these additional arguments, that you can access usin
             tools.append(AsyncTool.from_code(tool_info["code"]))
         # Load managed agents
         managed_agents = []
-        for managed_agent_name, managed_agent_class_name in agent_dict["managed_agents"].items():
-            managed_agent_class = getattr(importlib.import_module("smolagents.agents"), managed_agent_class_name)
-            managed_agents.append(managed_agent_class.from_dict(agent_dict["managed_agents"][managed_agent_name]))
+        for managed_agent_name, managed_agent_class_name in agent_dict[
+            "managed_agents"
+        ].items():
+            managed_agent_class = getattr(
+                importlib.import_module("smolagents.agents"), managed_agent_class_name
+            )
+            managed_agents.append(
+                managed_agent_class.from_dict(
+                    agent_dict["managed_agents"][managed_agent_name]
+                )
+            )
         # Extract base agent parameters
         agent_args = {
             "model": model,
@@ -905,9 +988,15 @@ You have been provided with these additional arguments, that you can access usin
 
         # Load managed agents from their respective folders, recursively
         managed_agents = []
-        for managed_agent_name, managed_agent_class_name in agent_dict["managed_agents"].items():
-            agent_cls = getattr(importlib.import_module("smolagents.agents"), managed_agent_class_name)
-            managed_agents.append(agent_cls.from_folder(folder / "managed_agents" / managed_agent_name))
+        for managed_agent_name, managed_agent_class_name in agent_dict[
+            "managed_agents"
+        ].items():
+            agent_cls = getattr(
+                importlib.import_module("smolagents.agents"), managed_agent_class_name
+            )
+            managed_agents.append(
+                agent_cls.from_folder(folder / "managed_agents" / managed_agent_name)
+            )
         agent_dict["managed_agents"] = {}
 
         # Load tools
@@ -967,7 +1056,9 @@ You have been provided with these additional arguments, that you can access usin
 
         with tempfile.TemporaryDirectory() as work_dir:
             self.save(work_dir)
-            logger.info(f"Uploading the following files to {repo_id}: {','.join(os.listdir(work_dir))}")
+            logger.info(
+                f"Uploading the following files to {repo_id}: {','.join(os.listdir(work_dir))}"
+            )
             return upload_folder(
                 repo_id=repo_id,
                 commit_message=commit_message,

@@ -1,15 +1,15 @@
 import os
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from PIL import Image
 
-from src.tools import AsyncTool, ToolResult
+from src.config import config
+from src.logger import logger
 from src.models import model_manager
 from src.models.base import MessageRole
-from src.tools.markdown.mdconvert import MarkitdownConverter
-from src.logger import logger
 from src.registry import register_tool
-from src.config import config
-
+from src.tools import AsyncTool, ToolResult
+from src.tools.markdown.mdconvert import MarkitdownConverter
 
 _DEEP_ANALYZER_DESCRIPTION = """A tool that performs systematic, step-by-step analysis or calculation of a given task, optionally leveraging information from external resources such as attached file or uri to provide comprehensive reasoning and answers.
 * At least one of `task` or `source` must be provided. When both are available, the tool will analyze and solve the task in the context of the provided source.
@@ -33,6 +33,7 @@ Here is the task:
 
 _DEEP_ANALYZER_SUMMARY_DESCRIPTION = """Please conduct a step-by-step analysis of the outputs from different models. Compare their results, identify discrepancies, extract the accurate components, eliminate the incorrect ones, and synthesize a coherent summary."""
 
+
 @register_tool("deep_analyzer")
 class DeepAnalyzerTool(AsyncTool):
     name: str = "deep_analyzer"
@@ -48,7 +49,7 @@ class DeepAnalyzerTool(AsyncTool):
             "source": {
                 "description": "The attached file or uri to be analyzed. The tool will process and interpret the content of the file or webpage.",
                 "type": "string",
-                "nullable": True
+                "nullable": True,
             },
         },
         "required": [],
@@ -57,14 +58,15 @@ class DeepAnalyzerTool(AsyncTool):
     output_type = "any"
 
     def __init__(self):
-
         self.analyzer_config = config.deep_analyzer_tool
 
         self.analyzer_models = {
             model_id: model_manager.registed_models[model_id]
             for model_id in self.analyzer_config.analyzer_model_ids
         }
-        self.summary_model = model_manager.registed_models[self.analyzer_config.summarizer_model_id]
+        self.summary_model = model_manager.registed_models[
+            self.analyzer_config.summarizer_model_id
+        ]
 
         self.converter: MarkitdownConverter = MarkitdownConverter(
             use_llm=False,
@@ -74,10 +76,9 @@ class DeepAnalyzerTool(AsyncTool):
 
         super(DeepAnalyzerTool, self).__init__()
 
-    async def _analyze(self,
-                 model,
-                 task: Optional[str] = None,
-                 source: Optional[str] = None) -> str:
+    async def _analyze(
+        self, model, task: Optional[str] = None, source: Optional[str] = None
+    ) -> str:
         add_note = False
         if not task:
             add_note = True
@@ -89,10 +90,9 @@ class DeepAnalyzerTool(AsyncTool):
         ]
 
         if source:
-
             ext = os.path.splitext(source)[-1].lower()
 
-            if ext in ['.png', '.jpg', '.jpeg']:
+            if ext in [".png", ".jpg", ".jpeg"]:
                 content.append(
                     {
                         "type": "image",
@@ -129,10 +129,11 @@ class DeepAnalyzerTool(AsyncTool):
 
         return output
 
-    async def _summarize(self,
-                 model,
-                 analysis: Dict[str, Any],
-                 ) -> str:
+    async def _summarize(
+        self,
+        model,
+        analysis: Dict[str, Any],
+    ) -> str:
         """
         Summarize the analysis and provide a final answer.
         """
@@ -148,8 +149,8 @@ class DeepAnalyzerTool(AsyncTool):
 
         messages = [
             {
-             "role": MessageRole.USER,
-             "content": content,
+                "role": MessageRole.USER,
+                "content": content,
             }
         ]
 
@@ -164,7 +165,9 @@ class DeepAnalyzerTool(AsyncTool):
 
         return output
 
-    async def forward(self, task: Optional[str] = None, source: Optional[str] = None) -> ToolResult:
+    async def forward(
+        self, task: Optional[str] = None, source: Optional[str] = None
+    ) -> ToolResult:
         """
         Forward the task and/or source to the analyzer model and get the analysis.
         """

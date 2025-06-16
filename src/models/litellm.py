@@ -1,13 +1,13 @@
 import warnings
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
-from src.models.base import (ApiModel,
-                             ChatMessage,
-                             tool_role_conversions,
-                             )
-from src.models.message_manager import (
-    MessageManager
+from src.models.base import (
+    ApiModel,
+    ChatMessage,
+    tool_role_conversions,
 )
+from src.models.message_manager import MessageManager
+
 
 class LiteLLMModel(ApiModel):
     """Model to use [LiteLLM Python SDK](https://docs.litellm.ai/docs/#litellm-python-sdk) to access hundreds of LLMs.
@@ -77,16 +77,16 @@ class LiteLLMModel(ApiModel):
         return litellm
 
     def _prepare_completion_kwargs(
-            self,
-            messages: List[Dict[str, str]],
-            stop_sequences: Optional[List[str]] = None,
-            grammar: Optional[str] = None,
-            tools_to_call_from: Optional[List[Any]] = None,
-            custom_role_conversions: Optional[Dict[str, str]] = None,
-            convert_images_to_image_urls: bool = False,
-            http_client=None,
-            timeout: Optional[int] = 300,
-            **kwargs,
+        self,
+        messages: List[Dict[str, str]],
+        stop_sequences: Optional[List[str]] = None,
+        grammar: Optional[str] = None,
+        tools_to_call_from: Optional[List[Any]] = None,
+        custom_role_conversions: Optional[Dict[str, str]] = None,
+        convert_images_to_image_urls: bool = False,
+        http_client=None,
+        timeout: Optional[int] = 300,
+        **kwargs,
     ) -> Dict:
         """
         Prepare parameters required for model invocation, handling parameter priorities.
@@ -123,19 +123,25 @@ class LiteLLMModel(ApiModel):
         if tools_to_call_from:
             completion_kwargs.update(
                 {
-                    "tools": [self.message_manager.get_tool_json_schema(tool,
-                                   model_id=self.model_id) for tool in tools_to_call_from],
+                    "tools": [
+                        self.message_manager.get_tool_json_schema(
+                            tool, model_id=self.model_id
+                        )
+                        for tool in tools_to_call_from
+                    ],
                     "tool_choice": "required",
                 }
             )
 
         # Finally, use the passed-in kwargs to override all settings
         completion_kwargs.update(kwargs)
-        
-        if http_client:
-            completion_kwargs['client'] = http_client
 
-        completion_kwargs = self.message_manager.get_clean_completion_kwargs(completion_kwargs)
+        if http_client:
+            completion_kwargs["client"] = http_client
+
+        completion_kwargs = self.message_manager.get_clean_completion_kwargs(
+            completion_kwargs
+        )
 
         return completion_kwargs
 
@@ -147,7 +153,6 @@ class LiteLLMModel(ApiModel):
         tools_to_call_from: Optional[List[Any]] = None,
         **kwargs,
     ) -> ChatMessage:
-
         completion_kwargs = self._prepare_completion_kwargs(
             messages=messages,
             stop_sequences=stop_sequences,
@@ -167,7 +172,9 @@ class LiteLLMModel(ApiModel):
         self.last_input_token_count = response.usage.prompt_tokens
         self.last_output_token_count = response.usage.completion_tokens
         first_message = ChatMessage.from_dict(
-            response.choices[0].message.model_dump(include={"role", "content", "tool_calls"}),
+            response.choices[0].message.model_dump(
+                include={"role", "content", "tool_calls"}
+            ),
             raw=response,
         )
         return self.postprocess_message(first_message, tools_to_call_from)

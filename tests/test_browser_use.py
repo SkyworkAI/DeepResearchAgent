@@ -1,22 +1,24 @@
 import warnings
+
 warnings.simplefilter("ignore", DeprecationWarning)
 
-import os
+import asyncio
 import sys
 from pathlib import Path
-import asyncio
+
 from dotenv import load_dotenv
+
 load_dotenv(verbose=True)
 
 root = str(Path(__file__).resolve().parents[1])
 sys.path.append(root)
 
-from src.tools.auto_browser import AutoBrowserUseTool
 from src.models import model_manager
+from src.tools.auto_browser import AutoBrowserUseTool
 
 if __name__ == "__main__":
     model_manager.init_models(use_local_proxy=True)
-    
+
     tool = AutoBrowserUseTool()
 
     loop = asyncio.get_event_loop()

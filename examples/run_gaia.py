@@ -1,28 +1,31 @@
 import warnings
+
 warnings.simplefilter("ignore", DeprecationWarning)
 
+import asyncio
+import json
 import os
 import sys
-from pathlib import Path
-import pandas as pd
-from typing import List
-import json
-from datetime import datetime
-import asyncio
 import threading
+from datetime import datetime
+from pathlib import Path
+from typing import List
+
+import pandas as pd
 
 root = str(Path(__file__).resolve().parents[1])
 sys.path.append(root)
 
-from src.logger import logger
-from src.config import config
-from src.models import model_manager
-from src.metric import question_scorer
 from src.agent import create_agent, prepare_response
+from src.config import config
 from src.dataset import GAIADataset
+from src.logger import logger
+from src.metric import question_scorer
+from src.models import model_manager
 from src.utils import assemble_project_path
 
 append_answer_lock = threading.Lock()
+
 
 def append_answer(entry: dict, jsonl_file: str) -> None:
     jsonl_file = Path(jsonl_file)
@@ -32,6 +35,7 @@ def append_answer(entry: dict, jsonl_file: str) -> None:
     assert os.path.exists(jsonl_file), "File not found!"
     print("Answer exported to file:", jsonl_file.resolve())
 
+
 def filter_answers(answers_file):
     answer_df = pd.read_json(answers_file, lines=True)
 
@@ -39,8 +43,8 @@ def filter_answers(answers_file):
     for row in answer_df.iterrows():
         row = row[1]
 
-        prediction = row['prediction']
-        truth = row['true_answer']
+        prediction = row["prediction"]
+        truth = row["true_answer"]
 
         if prediction is not None:
             score = question_scorer(prediction, truth)
@@ -48,12 +52,12 @@ def filter_answers(answers_file):
                 filttered_df.append(row)
 
     filttered_df = pd.DataFrame(filttered_df)
-    filttered_df.to_json(answers_file, lines=True, orient='records')
+    filttered_df.to_json(answers_file, lines=True, orient="records")
 
     logger.info(f"Previous answers filtered! {len(answer_df)} -> {len(filttered_df)}")
 
+
 def get_tasks_to_run(answers_file, dataset) -> List[dict]:
-    
     data = dataset.data
 
     logger.info(f"Loading answers from {answers_file}...")
@@ -65,31 +69,40 @@ def get_tasks_to_run(answers_file, dataset) -> List[dict]:
 
             df = pd.read_json(answers_file, lines=True)
             if "task_id" not in df.columns:
-                logger.warning(f"Answers file {answers_file} does not contain 'task_id' column. "
-                               "Please check the file format.")
+                logger.warning(
+                    f"Answers file {answers_file} does not contain 'task_id' column. "
+                    "Please check the file format."
+                )
                 return []
             done_questions = df["task_id"].tolist()
             logger.info(f"Found {len(done_questions)} previous results!")
-            
+
         else:
             done_questions = []
     except Exception as e:
         logger.warning("Error when loading records: ", e)
         logger.warning("No usable records! ▶️ Starting new.")
         done_questions = []
-    return [line for line in data.to_dict(orient="records") if line["task_id"] not in done_questions]
+    return [
+        line
+        for line in data.to_dict(orient="records")
+        if line["task_id"] not in done_questions
+    ]
+
 
 async def answer_single_question(example, answers_file):
-
     agent = create_agent()
 
-    logger.info(f"Task Id: {example['task_id']}, Final Answer: {example['true_answer']}")
+    logger.info(
+        f"Task Id: {example['task_id']}, Final Answer: {example['true_answer']}"
+    )
 
     augmented_question = example["question"]
 
     if example["file_name"]:
-
-        prompt_use_files = "\n\nTo solve the task above, you will have to use these attached files:\n"
+        prompt_use_files = (
+            "\n\nTo solve the task above, you will have to use these attached files:\n"
+        )
         file_description = f" - Attached file: {example['file_name']}"
         prompt_use_files += file_description
 
@@ -102,7 +115,11 @@ async def answer_single_question(example, answers_file):
 
         agent_memory = agent.write_memory_to_messages(summary_mode=True)
 
-        final_result = await prepare_response(augmented_question, agent_memory, reformulation_model=model_manager.registed_models["o3"])
+        final_result = await prepare_response(
+            augmented_question,
+            agent_memory,
+            reformulation_model=model_manager.registed_models["o3"],
+        )
 
         output = str(final_result)
         for memory_step in agent.memory.steps:
@@ -110,10 +127,18 @@ async def answer_single_question(example, answers_file):
         intermediate_steps = [str(step) for step in agent.memory.steps]
 
         # Check for parsing errors which indicate the LLM failed to follow the required format
-        parsing_error = True if any(["AgentParsingError" in step for step in intermediate_steps]) else False
+        parsing_error = (
+            True
+            if any(["AgentParsingError" in step for step in intermediate_steps])
+            else False
+        )
 
         # check if iteration limit exceeded
-        iteration_limit_exceeded = True if "Agent stopped due to iteration limit or time limit." in output else False
+        iteration_limit_exceeded = (
+            True
+            if "Agent stopped due to iteration limit or time limit." in output
+            else False
+        )
         raised_exception = False
 
     except Exception as e:
@@ -142,6 +167,7 @@ async def answer_single_question(example, answers_file):
     }
     append_answer(annotated_example, answers_file)
 
+
 async def main():
     # Init config and logger
     config.init_config(config_path=assemble_project_path("configs/config_gaia.toml"))
@@ -152,25 +178,26 @@ async def main():
     # Registed models
     model_manager.init_models(use_local_proxy=config.use_local_proxy)
     logger.info("Registed models: %s", ", ".join(model_manager.registed_models.keys()))
-    
+
     # Load dataset
     dataset = GAIADataset(
-        path=config.dataset.path,
-        name=config.dataset.name,
-        split=config.split
+        path=config.dataset.path, name=config.dataset.name, split=config.split
     )
     logger.info(f"Loaded dataset: {len(dataset)} examples.")
 
     # Load answers
     tasks_to_run = get_tasks_to_run(config.save_path, dataset)
     logger.info(f"Loaded {len(tasks_to_run)} tasks to run.")
-    
+
     # # Run tasks
     batch_size = getattr(config, "concurrency", 4)
     for i in range(0, len(tasks_to_run), batch_size):
-        batch = tasks_to_run[i:min(i + batch_size, len(tasks_to_run))]
-        await asyncio.gather(*[answer_single_question(task, config.save_path) for task in batch])
+        batch = tasks_to_run[i : min(i + batch_size, len(tasks_to_run))]
+        await asyncio.gather(
+            *[answer_single_question(task, config.save_path) for task in batch]
+        )
         logger.info(f"Batch {i // batch_size + 1} done.")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     asyncio.run(main())

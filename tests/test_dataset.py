@@ -1,4 +1,5 @@
 import warnings
+
 warnings.simplefilter("ignore", DeprecationWarning)
 
 import os
@@ -12,8 +13,9 @@ from src.dataset.huggingface import HLEDataset
 from src.logger import logger
 
 if __name__ == "__main__":
-    
     logger.init_logger("tmp.log")
-    
-    dataset = HLEDataset(path=os.path.join(root, "data", "hle"), split="test", name="hle")
+
+    dataset = HLEDataset(
+        path=os.path.join(root, "data", "hle"), split="test", name="hle"
+    )
     print(len(dataset))

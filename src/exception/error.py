@@ -48,6 +48,7 @@ class AgentGenerationError(AgentError):
 
     pass
 
+
 class TypeHintParsingException(Exception):
     """Exception raised for errors in parsing type hints to generate JSON schemas"""
 

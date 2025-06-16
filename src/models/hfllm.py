@@ -1,16 +1,16 @@
-import warnings
-from typing import Dict, List, Optional, Any
-from dataclasses import asdict, dataclass
 import os
-from src.models.base import (ApiModel,
-                             ChatMessage,
-                             tool_role_conversions,
-                             )
-from src.models.message_manager import (
-    MessageManager
+from dataclasses import asdict
+from typing import Any, Dict, List, Optional
+
+from src.models.base import (
+    ApiModel,
+    ChatMessage,
+    tool_role_conversions,
 )
+from src.models.message_manager import MessageManager
 
 STRUCTURED_GENERATION_PROVIDERS = ["cerebras", "fireworks-ai"]
+
 
 class InferenceClientModel(ApiModel):
     """A class to interact with Hugging Face's Inference Providers for language model interaction.
@@ -106,7 +106,9 @@ class InferenceClientModel(ApiModel):
             "bill_to": bill_to,
             "base_url": base_url,
         }
-        super().__init__(model_id=model_id, custom_role_conversions=custom_role_conversions, **kwargs)
+        super().__init__(
+            model_id=model_id, custom_role_conversions=custom_role_conversions, **kwargs
+        )
 
     def create_client(self):
         """Create the Hugging Face client."""
@@ -115,15 +117,15 @@ class InferenceClientModel(ApiModel):
         return InferenceClient(**self.client_kwargs)
 
     def _prepare_completion_kwargs(
-            self,
-            messages: List[Dict[str, str]],
-            stop_sequences: Optional[List[str]] = None,
-            grammar: Optional[str] = None,
-            tools_to_call_from: Optional[List[Any]] = None,
-            custom_role_conversions: Optional[Dict[str, str]] = None,
-            convert_images_to_image_urls: bool = False,
-            http_client=None,
-            **kwargs,
+        self,
+        messages: List[Dict[str, str]],
+        stop_sequences: Optional[List[str]] = None,
+        grammar: Optional[str] = None,
+        tools_to_call_from: Optional[List[Any]] = None,
+        custom_role_conversions: Optional[Dict[str, str]] = None,
+        convert_images_to_image_urls: bool = False,
+        http_client=None,
+        **kwargs,
     ) -> Dict:
         """
         Prepare parameters required for model invocation, handling parameter priorities.
@@ -157,9 +159,12 @@ class InferenceClientModel(ApiModel):
         if tools_to_call_from:
             completion_kwargs.update(
                 {
-                    "tools": [self.message_manager.get_tool_json_schema(tool,
-                                                                        model_id=self.model_id) for tool in
-                              tools_to_call_from],
+                    "tools": [
+                        self.message_manager.get_tool_json_schema(
+                            tool, model_id=self.model_id
+                        )
+                        for tool in tools_to_call_from
+                    ],
                     "tool_choice": "required",
                 }
             )
@@ -168,9 +173,11 @@ class InferenceClientModel(ApiModel):
         completion_kwargs.update(kwargs)
 
         if http_client:
-            completion_kwargs['client'] = http_client
+            completion_kwargs["client"] = http_client
 
-        completion_kwargs = self.message_manager.get_clean_completion_kwargs(completion_kwargs)
+        completion_kwargs = self.message_manager.get_clean_completion_kwargs(
+            completion_kwargs
+        )
 
         return completion_kwargs
 
@@ -182,7 +189,10 @@ class InferenceClientModel(ApiModel):
         tools_to_call_from: list[Any] | None = None,
         **kwargs,
     ) -> ChatMessage:
-        if response_format is not None and self.client_kwargs["provider"] not in STRUCTURED_GENERATION_PROVIDERS:
+        if (
+            response_format is not None
+            and self.client_kwargs["provider"] not in STRUCTURED_GENERATION_PROVIDERS
+        ):
             raise ValueError(
                 "InferenceClientModel only supports structured outputs with these providers:"
                 + ", ".join(STRUCTURED_GENERATION_PROVIDERS)
@@ -206,4 +216,3 @@ class InferenceClientModel(ApiModel):
             raw=response,
         )
         return self.postprocess_message(first_message, tools_to_call_from)
-

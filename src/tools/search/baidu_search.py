@@ -1,6 +1,7 @@
 from baidusearch.baidusearch import search
 
-from src.tools.search.base import WebSearchEngine, SearchItem
+from src.tools.search.base import SearchItem, WebSearchEngine
+
 
 class BaiduSearchEngine(WebSearchEngine):
     async def perform_search(self, query: str, num_results: int = 10, *args, **kwargs):
@@ -14,7 +15,6 @@ class BaiduSearchEngine(WebSearchEngine):
         # Convert raw results to SearchItem format
         results = []
         for i, item in enumerate(raw_results):
-
             if isinstance(item, str):
                 # If it's just a URL
                 results.append(

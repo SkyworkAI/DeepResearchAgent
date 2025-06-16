@@ -1,9 +1,10 @@
 import warnings
+
 warnings.simplefilter("ignore", DeprecationWarning)
 
+import asyncio
 import sys
 from pathlib import Path
-import asyncio
 
 root = str(Path(__file__).resolve().parents[1])
 sys.path.append(root)
@@ -13,8 +14,9 @@ from src.tools.deep_researcher import DeepResearcherTool
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
+
     load_dotenv(verbose=True)
-    
+
     model_manager.init_models(use_local_proxy=True)
 
     task = """

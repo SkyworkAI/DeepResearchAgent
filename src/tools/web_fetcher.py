@@ -1,14 +1,18 @@
 from typing import Optional
-from markitdown._base_converter import DocumentConverterResult
-from crawl4ai import AsyncWebCrawler
 
-from src.tools.markdown.mdconvert import MarkitdownConverter
-from src.tools import AsyncTool
+from crawl4ai import AsyncWebCrawler
+from markitdown._base_converter import DocumentConverterResult
+
 from src.logger import logger
+from src.tools import AsyncTool
+from src.tools.markdown.mdconvert import MarkitdownConverter
 
 _WEB_FETCHER_DESCRIPTION = """Visit a webpage at a given URL and return its text. """
 
-async def fetch_url(url: str, converter: Optional[MarkitdownConverter] = None) -> Optional[DocumentConverterResult]:
+
+async def fetch_url(
+    url: str, converter: Optional[MarkitdownConverter] = None
+) -> Optional[DocumentConverterResult]:
     try:
         async with AsyncWebCrawler() as crawler:
             result = await crawler.arun(
@@ -31,6 +35,7 @@ async def fetch_url(url: str, converter: Optional[MarkitdownConverter] = None) -
         logger.error(f"Error fetching URL: {url}, Error: {e}")
         return None
 
+
 class WebFetcherTool(AsyncTool):
     name = "web_fetcher"
     description = _WEB_FETCHER_DESCRIPTION
@@ -39,11 +44,11 @@ class WebFetcherTool(AsyncTool):
         "properties": {
             "url": {
                 "type": "string",
-                "description": "The relative or absolute url of the webpage to visit."
+                "description": "The relative or absolute url of the webpage to visit.",
             }
         },
         "required": ["url"],
-        "additionalProperties": False
+        "additionalProperties": False,
     }
     output_type = "any"
 
@@ -74,4 +79,3 @@ class WebFetcherTool(AsyncTool):
                 title="Error",
             )
         return res
-

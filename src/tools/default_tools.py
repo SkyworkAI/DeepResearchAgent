@@ -24,6 +24,7 @@ from src.tools.executor.local_python_executor import (
 )
 from src.tools.tools import PipelineTool, Tool, ToolResult
 
+
 @dataclass
 class PreTool:
     name: str
@@ -53,7 +54,9 @@ class PythonInterpreterTool(Tool):
         if authorized_imports is None:
             self.authorized_imports = list(set(BASE_BUILTIN_MODULES))
         else:
-            self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(authorized_imports))
+            self.authorized_imports = list(
+                set(BASE_BUILTIN_MODULES) | set(authorized_imports)
+            )
         self.parameters = {
             "type": "object",
             "properties": {
@@ -72,7 +75,6 @@ class PythonInterpreterTool(Tool):
         super().__init__(*args, **kwargs)
 
     def forward(self, code: str) -> ToolResult:
-
         try:
             state = {}
             output = str(
@@ -86,13 +88,10 @@ class PythonInterpreterTool(Tool):
 
             output = f"Stdout:\n{str(state['_print_outputs'])}\nOutput: {output}"
 
-            result = ToolResult(
-                output=output,
-                error = None
-            )
+            result = ToolResult(output=output, error=None)
         except Exception as e:
             result = ToolResult(
-                output = None,
+                output=None,
                 error=str(e),
             )
         return result
@@ -183,15 +182,18 @@ class DuckDuckGoSearchTool(Tool):
     def forward(self, query: str, max_results: Optional[int] = None) -> ToolResult:
         if max_results is None:
             max_results = self.max_results
-        results = self.ddgs.text(query, max_results = max_results)
+        results = self.ddgs.text(query, max_results=max_results)
         if len(results) == 0:
             raise Exception("No results found! Try a less restrictive/shorter query.")
-        postprocessed_results = [f"[{result['title']}]({result['href']})\n{result['body']}" for result in results]
-
+        postprocessed_results = [
+            f"[{result['title']}]({result['href']})\n{result['body']}"
+            for result in results
+        ]
 
         result = ToolResult(
             output="## Search Results\n\n" + "\n\n".join(postprocessed_results),
-            error=None)
+            error=None,
+        )
 
         return result
 
@@ -229,7 +231,9 @@ class GoogleSearchTool(Tool):
             api_key_env_name = "SERPER_API_KEY"
         self.api_key = os.getenv(api_key_env_name)
         if self.api_key is None:
-            raise ValueError(f"Missing API key. Make sure you have '{api_key_env_name}' in your env variables.")
+            raise ValueError(
+                f"Missing API key. Make sure you have '{api_key_env_name}' in your env variables."
+            )
 
     def forward(self, query: str, filter_year: Optional[int] = None) -> str:
         import requests
@@ -249,7 +253,9 @@ class GoogleSearchTool(Tool):
             }
             base_url = "https://google.serper.dev/search"
         if filter_year is not None:
-            params["tbs"] = f"cdr:1,cd_min:01/01/{filter_year},cd_max:12/31/{filter_year}"
+            params["tbs"] = (
+                f"cdr:1,cd_min:01/01/{filter_year},cd_max:12/31/{filter_year}"
+            )
 
         response = requests.get(base_url, params=params)
 
@@ -264,9 +270,13 @@ class GoogleSearchTool(Tool):
                     f"No results found for query: '{query}' with filtering on year={filter_year}. Use a less restrictive query or do not filter on year."
                 )
             else:
-                raise Exception(f"No results found for query: '{query}'. Use a less restrictive query.")
+                raise Exception(
+                    f"No results found for query: '{query}'. Use a less restrictive query."
+                )
         if len(results[self.organic_key]) == 0:
-            year_filter_message = f" with filter year={filter_year}" if filter_year is not None else ""
+            year_filter_message = (
+                f" with filter year={filter_year}" if filter_year is not None else ""
+            )
             return f"No results found for '{query}'{year_filter_message}. Try with a more general query, or remove the year filter."
 
         web_snippets = []
@@ -297,9 +307,7 @@ class GoogleSearchTool(Tool):
 
 class VisitWebpageTool(Tool):
     name = "visit_webpage"
-    description = (
-        "Visits a webpage at the given url and reads its content as a markdown string. Use this to browse webpages."
-    )
+    description = "Visits a webpage at the given url and reads its content as a markdown string. Use this to browse webpages."
     parameters = {
         "type": "object",
         "properties": {
@@ -322,7 +330,6 @@ class VisitWebpageTool(Tool):
             import requests
             from markdownify import markdownify
             from requests.exceptions import RequestException
-
             from smolagents.utils import truncate_content
         except ImportError as e:
             raise ImportError(
@@ -341,10 +348,7 @@ class VisitWebpageTool(Tool):
 
             res_str = truncate_content(markdown_content, self.max_output_length)
 
-            return ToolResult(
-                output=res_str,
-                error=None
-            )
+            return ToolResult(output=res_str, error=None)
 
         except requests.exceptions.Timeout:
             res_str = "The request timed out. Please try again later or check the URL."
@@ -428,7 +432,9 @@ class WikipediaSearchTool(Tool):
                 "You must install `wikipedia-api` to run this tool: for instance run `pip install wikipedia-api`"
             ) from e
         if not user_agent:
-            raise ValueError("User-agent is required. Provide a meaningful identifier for your project.")
+            raise ValueError(
+                "User-agent is required. Provide a meaningful identifier for your project."
+            )
 
         self.user_agent = user_agent
         self.language = language
@@ -446,7 +452,9 @@ class WikipediaSearchTool(Tool):
         self.extract_format = extract_format_map[extract_format]
 
         self.wiki = wikipediaapi.Wikipedia(
-            user_agent=self.user_agent, language=self.language, extract_format=self.extract_format
+            user_agent=self.user_agent,
+            language=self.language,
+            extract_format=self.extract_format,
         )
 
     def forward(self, query: str) -> ToolResult:

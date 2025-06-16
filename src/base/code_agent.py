@@ -14,43 +14,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import importlib
-from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional, Set, Tuple, TypedDict, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+)
 
 import yaml
-from rich.text import Text
 from rich.console import Group
-
+from rich.text import Text
 
 if TYPE_CHECKING:
-    import PIL.Image
+    pass
 
-from src.memory import (ActionStep,
-                        ToolCall)
-from src.models import (
-    ChatMessage,
-)
-from src.logger import (
-    LogLevel,
-)
-
-from src.tools import Tool
-from src.tools.executor.local_python_executor import LocalPythonExecutor, PythonExecutor, fix_final_answer_code
-from src.tools.executor.remote_executors import DockerExecutor, E2BExecutor
+from src.base.multistep_agent import MultiStepAgent, PromptTemplates, populate_template
 from src.exception import (
-    AgentParsingError,
     AgentExecutionError,
     AgentGenerationError,
+    AgentParsingError,
 )
-
-from src.utils import (
-    BASE_BUILTIN_MODULES,
-    truncate_content,
-    parse_code_blobs
+from src.logger import (
+    YELLOW_HEX,
+    LogLevel,
 )
-from src.base.multistep_agent import MultiStepAgent, PromptTemplates, populate_template
-from src.models import Model
+from src.memory import ActionStep, ToolCall
+from src.models import (
+    ChatMessage,
+    Model,
+)
+from src.tools import Tool
+from src.tools.executor.local_python_executor import (
+    LocalPythonExecutor,
+    PythonExecutor,
+    fix_final_answer_code,
+)
+from src.tools.executor.remote_executors import DockerExecutor, E2BExecutor
+from src.utils import BASE_BUILTIN_MODULES, parse_code_blobs, truncate_content
 
-from src.logger import YELLOW_HEX
 
 class CodeAgent(MultiStepAgent):
     """
@@ -84,11 +83,17 @@ class CodeAgent(MultiStepAgent):
         stream_outputs: bool = False,
         **kwargs,
     ):
-        self.additional_authorized_imports = additional_authorized_imports if additional_authorized_imports else []
-        self.authorized_imports = sorted(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
+        self.additional_authorized_imports = (
+            additional_authorized_imports if additional_authorized_imports else []
+        )
+        self.authorized_imports = sorted(
+            set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports)
+        )
         self.max_print_outputs_length = max_print_outputs_length
         prompt_templates = prompt_templates or yaml.safe_load(
-            importlib.resources.files("src.base.prompts").joinpath("code_agent.yaml").read_text()
+            importlib.resources.files("src.base.prompts")
+            .joinpath("code_agent.yaml")
+            .read_text()
         )
         super().__init__(
             tools=tools,
@@ -116,11 +121,21 @@ class CodeAgent(MultiStepAgent):
         match self.executor_type:
             case "e2b" | "docker":
                 if self.managed_agents:
-                    raise Exception("Managed agents are not yet supported with remote code execution.")
+                    raise Exception(
+                        "Managed agents are not yet supported with remote code execution."
+                    )
                 if self.executor_type == "e2b":
-                    return E2BExecutor(self.additional_authorized_imports, self.logger, **self.executor_kwargs)
+                    return E2BExecutor(
+                        self.additional_authorized_imports,
+                        self.logger,
+                        **self.executor_kwargs,
+                    )
                 else:
-                    return DockerExecutor(self.additional_authorized_imports, self.logger, **self.executor_kwargs)
+                    return DockerExecutor(
+                        self.additional_authorized_imports,
+                        self.logger,
+                        **self.executor_kwargs,
+                    )
             case "local":
                 return LocalPythonExecutor(
                     self.additional_authorized_imports,
@@ -155,7 +170,9 @@ class CodeAgent(MultiStepAgent):
         ### Generate model output ###
         memory_step.model_input_messages = input_messages
         try:
-            additional_args = {"grammar": self.grammar} if self.grammar is not None else {}
+            additional_args = (
+                {"grammar": self.grammar} if self.grammar is not None else {}
+            )
             if self.stream_outputs:
                 output_stream = self.model.generate_stream(
                     input_messages,
@@ -163,7 +180,9 @@ class CodeAgent(MultiStepAgent):
                     **additional_args,
                 )
                 output_text = ""
-                with Live("", console=self.logger.console, vertical_overflow="visible") as live:
+                with Live(
+                    "", console=self.logger.console, vertical_overflow="visible"
+                ) as live:
                     for event in output_stream:
                         if event.content is not None:
                             output_text += event.content
@@ -195,13 +214,17 @@ class CodeAgent(MultiStepAgent):
 
             memory_step.model_output = model_output
         except Exception as e:
-            raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
+            raise AgentGenerationError(
+                f"Error in generating model output:\n{e}", self.logger
+            ) from e
 
         ### Parse output ###
         try:
             code_action = fix_final_answer_code(parse_code_blobs(model_output))
         except Exception as e:
-            error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+            error_msg = (
+                f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+            )
             raise AgentParsingError(error_msg, self.logger)
 
         memory_step.tool_calls = [
@@ -213,7 +236,9 @@ class CodeAgent(MultiStepAgent):
         ]
 
         ### Execute action ###
-        self.logger.log_code(title="Executing parsed code:", content=code_action, level=LogLevel.INFO)
+        self.logger.log_code(
+            title="Executing parsed code:", content=code_action, level=LogLevel.INFO
+        )
         is_final_answer = False
         try:
             output, execution_logs, is_final_answer = self.python_executor(code_action)
@@ -225,7 +250,10 @@ class CodeAgent(MultiStepAgent):
                 ]
             observation = "Execution logs:\n" + execution_logs
         except Exception as e:
-            if hasattr(self.python_executor, "state") and "_print_outputs" in self.python_executor.state:
+            if (
+                hasattr(self.python_executor, "state")
+                and "_print_outputs" in self.python_executor.state
+            ):
                 execution_logs = str(self.python_executor.state["_print_outputs"])
                 if len(execution_logs) > 0:
                     execution_outputs_console = [
@@ -233,7 +261,9 @@ class CodeAgent(MultiStepAgent):
                         Text(execution_logs),
                     ]
                     memory_step.observations = "Execution logs:\n" + execution_logs
-                    self.logger.log(Group(*execution_outputs_console), level=LogLevel.INFO)
+                    self.logger.log(
+                        Group(*execution_outputs_console), level=LogLevel.INFO
+                    )
             error_msg = str(e)
             if "Import of " in error_msg and " is not allowed" in error_msg:
                 self.logger.log(
@@ -288,7 +318,9 @@ class CodeAgent(MultiStepAgent):
             "max_print_outputs_length": agent_dict.get("max_print_outputs_length"),
         }
         # Filter out None values
-        code_agent_kwargs = {k: v for k, v in code_agent_kwargs.items() if v is not None}
+        code_agent_kwargs = {
+            k: v for k, v in code_agent_kwargs.items() if v is not None
+        }
         # Update with any additional kwargs
         code_agent_kwargs.update(kwargs)
         # Call the parent class's from_dict method

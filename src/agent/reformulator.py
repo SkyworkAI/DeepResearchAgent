@@ -1,10 +1,12 @@
 import copy
 
-from src.models import MessageRole, Model
 from src.logger import logger
+from src.models import MessageRole, Model
 
 
-async def prepare_response(original_task: str, inner_messages, reformulation_model: Model) -> str:
+async def prepare_response(
+    original_task: str, inner_messages, reformulation_model: Model
+) -> str:
     messages = [
         {
             "role": MessageRole.SYSTEM,

@@ -1,5 +1,6 @@
 import tiktoken
 
+
 def get_token_count(prompt: str, model: str = "gpt-4o") -> int:
     """
     Get the number of tokens in a prompt.

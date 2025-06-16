@@ -193,7 +193,9 @@ def validate_tool_attributes(cls, check_imports: bool = True) -> None:
 
             # Check if the assignment is more complex than simple literals
             if not all(
-                isinstance(val, (ast.Str, ast.Num, ast.Constant, ast.Dict, ast.List, ast.Set))
+                isinstance(
+                    val, (ast.Str, ast.Num, ast.Constant, ast.Dict, ast.List, ast.Set)
+                )
                 for val in ast.walk(node.value)
             ):
                 for target in node.targets:
@@ -203,7 +205,9 @@ def validate_tool_attributes(cls, check_imports: bool = True) -> None:
             # Check specific class attributes
             if getattr(node.targets[0], "id", "") == "name":
                 if not isinstance(node.value, ast.Constant):
-                    self.invalid_attributes.append(f"Class attribute 'name' must be a constant, found '{node.value}'")
+                    self.invalid_attributes.append(
+                        f"Class attribute 'name' must be a constant, found '{node.value}'"
+                    )
                 elif not isinstance(node.value.value, str):
                     self.invalid_attributes.append(
                         f"Class attribute 'name' must be a string, found '{node.value.value}'"
@@ -215,11 +219,18 @@ def validate_tool_attributes(cls, check_imports: bool = True) -> None:
 
         def _check_init_function_parameters(self, node):
             # Check defaults in parameters
-            for arg, default in reversed(list(zip_longest(reversed(node.args.args), reversed(node.args.defaults)))):
+            for arg, default in reversed(
+                list(
+                    zip_longest(reversed(node.args.args), reversed(node.args.defaults))
+                )
+            ):
                 if default is None:
                     if arg.arg != "self":
                         self.non_defaults.add(arg.arg)
-                elif not isinstance(default, (ast.Str, ast.Num, ast.Constant, ast.Dict, ast.List, ast.Set)):
+                elif not isinstance(
+                    default,
+                    (ast.Str, ast.Num, ast.Constant, ast.Dict, ast.List, ast.Set),
+                ):
                     self.non_literal_defaults.add(arg.arg)
 
     class_level_checker = ClassLevelChecker()
@@ -253,10 +264,14 @@ def validate_tool_attributes(cls, check_imports: bool = True) -> None:
     # Run checks on all methods
     for node in class_node.body:
         if isinstance(node, ast.FunctionDef):
-            method_checker = MethodChecker(class_level_checker.class_attributes, check_imports=check_imports)
+            method_checker = MethodChecker(
+                class_level_checker.class_attributes, check_imports=check_imports
+            )
             method_checker.visit(node)
             errors += [f"- {node.name}: {error}" for error in method_checker.errors]
 
     if errors:
-        raise ValueError(f"Tool validation failed for {cls.__name__}:\n" + "\n".join(errors))
+        raise ValueError(
+            f"Tool validation failed for {cls.__name__}:\n" + "\n".join(errors)
+        )
     return

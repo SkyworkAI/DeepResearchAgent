@@ -20,7 +20,6 @@ import importlib.metadata
 import importlib.util
 import inspect
 import json
-import json5
 import keyword
 import os
 import re
@@ -29,7 +28,9 @@ from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, Dict, Tuple
+from typing import Any, Dict, Tuple
+
+import json5
 
 
 @lru_cache
@@ -62,7 +63,9 @@ def escape_code_brackets(text: str) -> str:
     def replace_bracketed_content(match):
         content = match.group(1)
         cleaned = re.sub(
-            r"bold|red|green|blue|yellow|magenta|cyan|white|black|italic|dim|\s|#[0-9a-fA-F]{6}", "", content
+            r"bold|red|green|blue|yellow|magenta|cyan|white|black|italic|dim|\s|#[0-9a-fA-F]{6}",
+            "",
+            content,
         )
         return f"\\[{content}\\]" if cleaned.strip() else f"[{content}]"
 
@@ -77,7 +80,9 @@ def make_json_serializable(obj: Any) -> Any:
         # Try to parse string as JSON if it looks like a JSON object/array
         if isinstance(obj, str):
             try:
-                if (obj.startswith("{") and obj.endswith("}")) or (obj.startswith("[") and obj.endswith("]")):
+                if (obj.startswith("{") and obj.endswith("}")) or (
+                    obj.startswith("[") and obj.endswith("]")
+                ):
                     parsed = json5.loads(obj)
                     return make_json_serializable(parsed)
             except json.JSONDecodeError:
@@ -89,7 +94,10 @@ def make_json_serializable(obj: Any) -> Any:
         return {str(k): make_json_serializable(v) for k, v in obj.items()}
     elif hasattr(obj, "__dict__"):
         # For custom objects, convert their __dict__ to a serializable format
-        return {"_type": obj.__class__.__name__, **{k: make_json_serializable(v) for k, v in obj.__dict__.items()}}
+        return {
+            "_type": obj.__class__.__name__,
+            **{k: make_json_serializable(v) for k, v in obj.__dict__.items()},
+        }
     else:
         # For any other type, convert to string
         return str(obj)
@@ -103,14 +111,14 @@ def parse_json_blob(json_blob: str) -> Tuple[Dict[str, str], str]:
 
         first_accolade_index = json_blob.find("{")
         last_accolade_index = [a.start() for a in list(re.finditer("}", json_blob))][-1]
-        json_data = json_blob[first_accolade_index: last_accolade_index + 1]
+        json_data = json_blob[first_accolade_index : last_accolade_index + 1]
 
         print("*" * 50)
         print(json_data)
         print("*" * 50)
 
         json_data = json5.loads(json_data, strict=False)
-        json_data = json_data['function']
+        json_data = json_data["function"]
 
         return json_data, json_blob[:first_accolade_index]
     except IndexError:
@@ -188,7 +196,9 @@ def parse_code_blobs(text: str) -> str:
 MAX_LENGTH_TRUNCATE_CONTENT = 20000
 
 
-def truncate_content(content: str, max_length: int = MAX_LENGTH_TRUNCATE_CONTENT) -> str:
+def truncate_content(
+    content: str, max_length: int = MAX_LENGTH_TRUNCATE_CONTENT
+) -> str:
     if len(content) <= max_length:
         return content
     else:
@@ -230,8 +240,12 @@ def is_same_method(method1, method2):
         source2 = get_method_source(method2)
 
         # Remove method decorators if any
-        source1 = "\n".join(line for line in source1.split("\n") if not line.strip().startswith("@"))
-        source2 = "\n".join(line for line in source2.split("\n") if not line.strip().startswith("@"))
+        source1 = "\n".join(
+            line for line in source1.split("\n") if not line.strip().startswith("@")
+        )
+        source2 = "\n".join(
+            line for line in source2.split("\n") if not line.strip().startswith("@")
+        )
 
         return source1 == source2
     except (TypeError, OSError):
@@ -268,7 +282,9 @@ def instance_to_source(instance, base_cls=None):
         for name, value in cls.__dict__.items()
         if not name.startswith("__")
         and not callable(value)
-        and not (base_cls and hasattr(base_cls, name) and getattr(base_cls, name) == value)
+        and not (
+            base_cls and hasattr(base_cls, name) and getattr(base_cls, name) == value
+        )
     }
 
     for name, value in class_attrs.items():
@@ -308,7 +324,9 @@ def instance_to_source(instance, base_cls=None):
         first_line = method_lines[0]
         indent = len(first_line) - len(first_line.lstrip())
         method_lines = [line[indent:] for line in method_lines]
-        method_source = "\n".join(["    " + line if line.strip() else line for line in method_lines])
+        method_source = "\n".join(
+            ["    " + line if line.strip() else line for line in method_lines]
+        )
         class_lines.append(method_source)
         class_lines.append("")
 
@@ -380,9 +398,16 @@ def get_source(obj) -> str:
 
         tree = ast.parse(all_cells)
         for node in ast.walk(tree):
-            if isinstance(node, (ast.ClassDef, ast.FunctionDef)) and node.name == obj.__name__:
-                return dedent("\n".join(all_cells.split("\n")[node.lineno - 1 : node.end_lineno])).strip()
-        raise ValueError(f"Could not find source code for {obj.__name__} in IPython history")
+            if (
+                isinstance(node, (ast.ClassDef, ast.FunctionDef))
+                and node.name == obj.__name__
+            ):
+                return dedent(
+                    "\n".join(all_cells.split("\n")[node.lineno - 1 : node.end_lineno])
+                ).strip()
+        raise ValueError(
+            f"Could not find source code for {obj.__name__} in IPython history"
+        )
     except ImportError:
         # IPython is not available, let's just raise the original inspect error
         raise inspect_error
@@ -409,4 +434,8 @@ def make_init_file(folder: str | Path):
 
 
 def is_valid_name(name: str) -> bool:
-    return name.isidentifier() and not keyword.iskeyword(name) if isinstance(name, str) else False
+    return (
+        name.isidentifier() and not keyword.iskeyword(name)
+        if isinstance(name, str)
+        else False
+    )

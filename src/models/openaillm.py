@@ -1,12 +1,8 @@
-import warnings
-from typing import Dict, List, Optional, Any
-from copy import deepcopy
+from typing import Any, Dict, List, Optional
 
-from src.models.base import (ApiModel,
-                             ChatMessage,
-                             tool_role_conversions,
-                             MessageRole)
+from src.models.base import ApiModel, ChatMessage, tool_role_conversions
 from src.models.message_manager import MessageManager
+
 
 class OpenAIServerModel(ApiModel):
     """This model connects to an OpenAI-compatible API server.
@@ -64,7 +60,6 @@ class OpenAIServerModel(ApiModel):
         )
 
     def create_client(self):
-
         if self.http_client:
             return self.http_client
         else:
@@ -75,21 +70,18 @@ class OpenAIServerModel(ApiModel):
                     "Please install 'openai' extra to use OpenAIServerModel: `pip install 'smolagents[openai]'`"
                 ) from e
 
-            return openai.OpenAI(
-                base_url=self.api_base,
-                api_key=self.api_key
-            )
+            return openai.OpenAI(base_url=self.api_base, api_key=self.api_key)
 
     def _prepare_completion_kwargs(
-            self,
-            messages: List[Dict[str, str]],
-            stop_sequences: Optional[List[str]] = None,
-            grammar: Optional[str] = None,
-            tools_to_call_from: Optional[List[Any]] = None,
-            custom_role_conversions: dict[str, str] | None = None,
-            convert_images_to_image_urls: bool = False,
-            timeout: Optional[int] = 300,
-            **kwargs,
+        self,
+        messages: List[Dict[str, str]],
+        stop_sequences: Optional[List[str]] = None,
+        grammar: Optional[str] = None,
+        tools_to_call_from: Optional[List[Any]] = None,
+        custom_role_conversions: dict[str, str] | None = None,
+        convert_images_to_image_urls: bool = False,
+        timeout: Optional[int] = 300,
+        **kwargs,
     ) -> Dict:
         """
         Prepare parameters required for model invocation, handling parameter priorities.
@@ -126,8 +118,12 @@ class OpenAIServerModel(ApiModel):
         if tools_to_call_from:
             completion_kwargs.update(
                 {
-                    "tools": [self.message_manager.get_tool_json_schema(tool,
-                                   model_id=self.model_id) for tool in tools_to_call_from],
+                    "tools": [
+                        self.message_manager.get_tool_json_schema(
+                            tool, model_id=self.model_id
+                        )
+                        for tool in tools_to_call_from
+                    ],
                     "tool_choice": "required",
                 }
             )
@@ -135,7 +131,9 @@ class OpenAIServerModel(ApiModel):
         # Finally, use the passed-in kwargs to override all settings
         completion_kwargs.update(kwargs)
 
-        completion_kwargs = self.message_manager.get_clean_completion_kwargs(completion_kwargs)
+        completion_kwargs = self.message_manager.get_clean_completion_kwargs(
+            completion_kwargs
+        )
 
         return completion_kwargs
 
@@ -147,7 +145,6 @@ class OpenAIServerModel(ApiModel):
         tools_to_call_from: Optional[List[Any]] = None,
         **kwargs,
     ) -> ChatMessage:
-
         completion_kwargs = self._prepare_completion_kwargs(
             messages=messages,
             stop_sequences=stop_sequences,
@@ -165,7 +162,9 @@ class OpenAIServerModel(ApiModel):
         self.last_output_token_count = response.usage.completion_tokens
 
         first_message = ChatMessage.from_dict(
-            response.choices[0].message.model_dump(include={"role", "content", "tool_calls"}),
+            response.choices[0].message.model_dump(
+                include={"role", "content", "tool_calls"}
+            ),
             raw=response,
         )
         return self.postprocess_message(first_message, tools_to_call_from)

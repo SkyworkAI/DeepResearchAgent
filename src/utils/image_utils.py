@@ -1,11 +1,12 @@
-import requests
-import os
 import base64
 import mimetypes
+import os
 import uuid
 
-def download_image(image_url, download_path):
+import requests
 
+
+def download_image(image_url, download_path):
     user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0"
 
     request_kwargs = {
@@ -30,6 +31,7 @@ def download_image(image_url, download_path):
             fh.write(chunk)
 
     return download_image_path
+
 
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:

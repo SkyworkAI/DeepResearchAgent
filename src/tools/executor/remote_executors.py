@@ -27,11 +27,10 @@ from typing import Any, Dict, List, Tuple
 import PIL.Image
 import requests
 
-from src.logger import LogLevel
-from src.tools.tools import Tool, get_tools_definition_code
-from src.tools.executor.local_python_executor import PythonExecutor
 from src.exception import AgentError
-
+from src.logger import LogLevel
+from src.tools.executor.local_python_executor import PythonExecutor
+from src.tools.tools import Tool, get_tools_definition_code
 
 try:
     from dotenv import load_dotenv
@@ -49,7 +48,9 @@ class RemotePythonExecutor(PythonExecutor):
         self.final_answer_pattern = re.compile(r"^final_answer\((.*)\)$", re.M)
         self.installed_packages = []
 
-    def run_code_raise_errors(self, code: str, return_final_answer: bool = False) -> Tuple[Any, str]:
+    def run_code_raise_errors(
+        self, code: str, return_final_answer: bool = False
+    ) -> Tuple[Any, str]:
         raise NotImplementedError
 
     def send_tools(self, tools: Dict[str, Tool]):
@@ -82,12 +83,16 @@ locals().update(vars_dict)
     def __call__(self, code_action: str) -> Tuple[Any, str, bool]:
         """Check if code is a final answer and run it accordingly"""
         is_final_answer = bool(self.final_answer_pattern.search(code_action))
-        output = self.run_code_raise_errors(code_action, return_final_answer=is_final_answer)
+        output = self.run_code_raise_errors(
+            code_action, return_final_answer=is_final_answer
+        )
         return output[0], output[1], is_final_answer
 
     def install_packages(self, additional_imports: List[str]):
         additional_imports = additional_imports + ["smolagents"]
-        _, execution_logs = self.run_code_raise_errors(f"!pip install {' '.join(additional_imports)}")
+        _, execution_logs = self.run_code_raise_errors(
+            f"!pip install {' '.join(additional_imports)}"
+        )
         self.logger.info(execution_logs)
         return additional_imports
 
@@ -114,7 +119,9 @@ class E2BExecutor(RemotePythonExecutor):
         self.installed_packages = self.install_packages(additional_imports)
         self.logger.info("E2B is running", level=LogLevel.INFO)
 
-    def run_code_raise_errors(self, code: str, return_final_answer: bool = False) -> Tuple[Any, str]:
+    def run_code_raise_errors(
+        self, code: str, return_final_answer: bool = False
+    ) -> Tuple[Any, str]:
         execution = self.sandbox.run_code(
             code,
         )
@@ -135,8 +142,12 @@ class E2BExecutor(RemotePythonExecutor):
                     for attribute_name in ["jpeg", "png"]:
                         if getattr(result, attribute_name) is not None:
                             image_output = getattr(result, attribute_name)
-                            decoded_bytes = base64.b64decode(image_output.encode("utf-8"))
-                            return PIL.Image.open(BytesIO(decoded_bytes)), execution_logs
+                            decoded_bytes = base64.b64decode(
+                                image_output.encode("utf-8")
+                            )
+                            return PIL.Image.open(
+                                BytesIO(decoded_bytes)
+                            ), execution_logs
                     for attribute_name in [
                         "chart",
                         "data",
@@ -199,7 +210,9 @@ class DockerExecutor(RemotePythonExecutor):
         try:
             self.client = docker.from_env()
         except docker.errors.DockerException as e:
-            raise RuntimeError("Could not connect to Docker daemon: make sure Docker is running.") from e
+            raise RuntimeError(
+                "Could not connect to Docker daemon: make sure Docker is running."
+            ) from e
 
         # Build and start container
         try:
@@ -207,13 +220,21 @@ class DockerExecutor(RemotePythonExecutor):
             if not build_new_image:
                 try:
                     self.client.images.get(self.image_name)
-                    self.logger.info(f"Using existing Docker image: {self.image_name}", level=LogLevel.INFO)
+                    self.logger.info(
+                        f"Using existing Docker image: {self.image_name}",
+                        level=LogLevel.INFO,
+                    )
                 except docker.errors.ImageNotFound:
-                    self.logger.info(f"Image {self.image_name} not found, building...", level=LogLevel.INFO)
+                    self.logger.info(
+                        f"Image {self.image_name} not found, building...",
+                        level=LogLevel.INFO,
+                    )
                     build_new_image = True
 
             if build_new_image:
-                self.logger.info(f"Building Docker image {self.image_name}...", level=LogLevel.INFO)
+                self.logger.info(
+                    f"Building Docker image {self.image_name}...", level=LogLevel.INFO
+                )
                 dockerfile_path = Path(__file__).parent / "Dockerfile"
                 if not dockerfile_path.exists():
                     with open(dockerfile_path, "w") as f:
@@ -226,11 +247,15 @@ EXPOSE 8888
 CMD ["jupyter", "kernelgateway", "--KernelGatewayApp.ip='0.0.0.0'", "--KernelGatewayApp.port=8888", "--KernelGatewayApp.allow_origin='*'"]
 """)
                 _, build_logs = self.client.images.build(
-                    path=str(dockerfile_path.parent), dockerfile=str(dockerfile_path), tag=self.image_name
+                    path=str(dockerfile_path.parent),
+                    dockerfile=str(dockerfile_path),
+                    tag=self.image_name,
                 )
                 self.logger.info(build_logs, level=LogLevel.DEBUG)
 
-            self.logger.info(f"Starting container on {host}:{port}...", level=LogLevel.INFO)
+            self.logger.info(
+                f"Starting container on {host}:{port}...", level=LogLevel.INFO
+            )
             # Create base container parameters
             container_kwargs = {}
             if container_run_kwargs:
@@ -242,11 +267,16 @@ CMD ["jupyter", "kernelgateway", "--KernelGatewayApp.ip='0.0.0.0'", "--KernelGat
             container_kwargs["ports"]["8888/tcp"] = (host, port)
             container_kwargs["detach"] = True
 
-            self.container = self.client.containers.run(self.image_name, **container_kwargs)
+            self.container = self.client.containers.run(
+                self.image_name, **container_kwargs
+            )
 
             retries = 0
             while self.container.status != "running" and retries < 5:
-                self.logger.info(f"Container status: {self.container.status}, waiting...", level=LogLevel.INFO)
+                self.logger.info(
+                    f"Container status: {self.container.status}, waiting...",
+                    level=LogLevel.INFO,
+                )
                 time.sleep(1)
                 self.container.reload()
                 retries += 1
@@ -265,8 +295,12 @@ CMD ["jupyter", "kernelgateway", "--KernelGatewayApp.ip='0.0.0.0'", "--KernelGat
                     "request_headers": dict(r.request.headers),
                     "request_body": r.request.body,
                 }
-                self.logger.log_error(f"Failed to create kernel. Details: {json.dumps(error_details, indent=2)}")
-                raise RuntimeError(f"Failed to create kernel: Status {r.status_code}\nResponse: {r.text}") from None
+                self.logger.log_error(
+                    f"Failed to create kernel. Details: {json.dumps(error_details, indent=2)}"
+                )
+                raise RuntimeError(
+                    f"Failed to create kernel: Status {r.status_code}\nResponse: {r.text}"
+                ) from None
 
             self.kernel_id = r.json()["id"]
 
@@ -275,14 +309,17 @@ CMD ["jupyter", "kernelgateway", "--KernelGatewayApp.ip='0.0.0.0'", "--KernelGat
 
             self.installed_packages = self.install_packages(additional_imports)
             self.logger.info(
-                f"Container {self.container.short_id} is running with kernel {self.kernel_id}", level=LogLevel.INFO
+                f"Container {self.container.short_id} is running with kernel {self.kernel_id}",
+                level=LogLevel.INFO,
             )
 
         except Exception as e:
             self.cleanup()
             raise RuntimeError(f"Failed to initialize Jupyter kernel: {e}") from e
 
-    def run_code_raise_errors(self, code_action: str, return_final_answer: bool = False) -> Tuple[Any, str]:
+    def run_code_raise_errors(
+        self, code_action: str, return_final_answer: bool = False
+    ) -> Tuple[Any, str]:
         """
         Execute code and return result based on whether it's a final answer.
         """
@@ -290,7 +327,9 @@ CMD ["jupyter", "kernelgateway", "--KernelGatewayApp.ip='0.0.0.0'", "--KernelGat
             if return_final_answer:
                 match = self.final_answer_pattern.search(code_action)
                 if match:
-                    pre_final_answer_code = self.final_answer_pattern.sub("", code_action)
+                    pre_final_answer_code = self.final_answer_pattern.sub(
+                        "", code_action
+                    )
                     result_expr = match.group(1)
                     wrapped_code = pre_final_answer_code + dedent(f"""
                         import pickle, base64
@@ -328,7 +367,9 @@ CMD ["jupyter", "kernelgateway", "--KernelGatewayApp.ip='0.0.0.0'", "--KernelGat
                 elif msg_type == "error":
                     traceback = msg["content"].get("traceback", [])
                     raise AgentError("\n".join(traceback), self.logger)
-                elif msg_type == "status" and msg["content"]["execution_state"] == "idle":
+                elif (
+                    msg_type == "status" and msg["content"]["execution_state"] == "idle"
+                ):
                     if not return_final_answer or waiting_for_idle:
                         break
 
@@ -372,7 +413,10 @@ CMD ["jupyter", "kernelgateway", "--KernelGatewayApp.ip='0.0.0.0'", "--KernelGat
         """Clean up resources."""
         try:
             if hasattr(self, "container"):
-                self.logger.info(f"Stopping and removing container {self.container.short_id}...", level=LogLevel.INFO)
+                self.logger.info(
+                    f"Stopping and removing container {self.container.short_id}...",
+                    level=LogLevel.INFO,
+                )
                 self.container.stop()
                 self.container.remove()
                 self.logger.info("Container cleanup completed", level=LogLevel.INFO)

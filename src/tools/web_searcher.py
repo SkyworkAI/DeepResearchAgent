@@ -1,22 +1,19 @@
-import asyncio
+import time
 from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from tenacity import retry, stop_after_attempt, wait_exponential
-import time
 
-from src.tools.web_fetcher import WebFetcherTool
 from src.config import config
-from src.tools.search import (
-    GoogleSearchEngine,
-    WebSearchEngine,
-    SearchItem
-)
-from src.tools import AsyncTool, ToolResult
 from src.logger import logger
+from src.tools import AsyncTool, ToolResult
+from src.tools.search import GoogleSearchEngine, SearchItem, WebSearchEngine
+from src.tools.web_fetcher import WebFetcherTool
 
 _WEB_SEARCHER_DESCRIPTION = """Search the web for real-time information about any topic.
 This tool returns comprehensive search results with relevant information, URLs, titles, and descriptions.
 If the primary search engine fails, it automatically falls back to alternative engines."""
+
 
 class SearchResult(BaseModel):
     """Represents a single search result returned by a search engine."""
@@ -51,13 +48,17 @@ class SearchMetadata(BaseModel):
 
 class SearchResponse(ToolResult):
     """Structured response from the web search tool, inheriting ToolResult."""
+
     query: str = Field(description="The search query that was executed")
-    results: List[SearchResult] = Field(default_factory=list, description="List of search results")
-    metadata: Optional[SearchMetadata] = Field(default=None, description="Metadata about the search")
+    results: List[SearchResult] = Field(
+        default_factory=list, description="List of search results"
+    )
+    metadata: Optional[SearchMetadata] = Field(
+        default=None, description="Metadata about the search"
+    )
 
     @model_validator(mode="after")
     def populate_output(self) -> "SearchResponse":
-
         if self.error:
             return self
 
@@ -85,7 +86,7 @@ class SearchResponse(ToolResult):
         if self.metadata:
             result_text.extend(
                 [
-                    f"\nMetadata:",
+                    "\nMetadata:",
                     f"- Total results: {self.metadata.total_results}",
                     f"- Language: {self.metadata.language}",
                     f"- Country: {self.metadata.country}",
@@ -94,6 +95,7 @@ class SearchResponse(ToolResult):
 
         self.output = "\n".join(result_text)
         return self
+
 
 class WebSearcherTool(AsyncTool):
     """Search the web for information using various search engines."""
@@ -115,7 +117,7 @@ class WebSearcherTool(AsyncTool):
         },
         "required": ["query"],
     }
-    output_type = 'any'
+    output_type = "any"
 
     def __init__(self):
         super(WebSearcherTool, self).__init__()
@@ -189,7 +191,9 @@ class WebSearcherTool(AsyncTool):
 
         # Try searching with retries when all engines fail
         for retry_count in range(self.max_retries + 1):
-            results = await self._try_all_engines(query, self.num_results, search_params)
+            results = await self._try_all_engines(
+                query, self.num_results, search_params
+            )
             if results:
                 # Fetch content if requested
                 if self.fetch_content:
@@ -261,14 +265,16 @@ class WebSearcherTool(AsyncTool):
         return []
 
     async def _fetch_content_for_results(
-            self, results: List[SearchResult]
+        self, results: List[SearchResult]
     ) -> List[SearchResult]:
         """Fetch and add web content to search results."""
         if not results:
             return []
 
         # Create tasks for each result
-        fetched_results = [await self._fetch_single_result_content(result) for result in results]
+        fetched_results = [
+            await self._fetch_single_result_content(result) for result in results
+        ]
 
         # Explicit validation of return type
         return [
@@ -330,7 +336,8 @@ class WebSearcherTool(AsyncTool):
     ) -> List[SearchItem]:
         """Execute search with the given engine and parameters."""
 
-        results = [result
+        results = [
+            result
             for result in await engine.perform_search(
                 query,
                 num_results=num_results,

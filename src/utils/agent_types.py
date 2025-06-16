@@ -12,18 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
 import os
 import pathlib
 import tempfile
 import uuid
 from io import BytesIO
+
 import PIL
 import PIL.Image
 import requests
 
-from src.utils import _is_package_available
 from src.logger import logger
+from src.utils import _is_package_available
 
 
 class AgentType:
@@ -103,7 +103,9 @@ class AgentImage(AgentType, PIL.Image.Image):
                 pass
 
         if self._path is None and self._raw is None and self._tensor is None:
-            raise TypeError(f"Unsupported type for {self.__class__.__name__}: {type(value)}")
+            raise TypeError(
+                f"Unsupported type for {self.__class__.__name__}: {type(value)}"
+            )
 
     def _ipython_display_(self, include=None, exclude=None):
         """
@@ -253,7 +255,9 @@ _AGENT_TYPE_MAPPING = {"string": AgentText, "image": AgentImage, "audio": AgentA
 
 def handle_agent_input_types(*args, **kwargs):
     args = [(arg.to_raw() if isinstance(arg, AgentType) else arg) for arg in args]
-    kwargs = {k: (v.to_raw() if isinstance(v, AgentType) else v) for k, v in kwargs.items()}
+    kwargs = {
+        k: (v.to_raw() if isinstance(v, AgentType) else v) for k, v in kwargs.items()
+    }
     return args, kwargs
 
 

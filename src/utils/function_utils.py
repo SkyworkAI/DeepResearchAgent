@@ -40,6 +40,7 @@ from typing import (
     get_origin,
     get_type_hints,
 )
+
 from src.exception import DocstringParsingException, TypeHintParsingException
 
 
@@ -65,7 +66,9 @@ def get_imports(code: str) -> List[str]:
     )
 
     # Imports of the form `import xxx` or `import xxx as yyy`
-    imports = re.findall(r"^\s*import\s+(\S+?)(?:\s+as\s+\S+)?\s*$", code, flags=re.MULTILINE)
+    imports = re.findall(
+        r"^\s*import\s+(\S+?)(?:\s+as\s+\S+)?\s*$", code, flags=re.MULTILINE
+    )
     # Imports of the form `from xxx import yyy`
     imports += re.findall(r"^\s*from\s+(\S+)\s+import", code, flags=re.MULTILINE)
     # Only keep the top-level module
@@ -190,7 +193,9 @@ def get_json_schema(func: Callable) -> Dict:
 
     json_schema = _convert_type_hints_to_json_schema(func)
     if (return_dict := json_schema["properties"].pop("return", None)) is not None:
-        if return_doc is not None:  # We allow a missing return docstring since most templates ignore it
+        if (
+            return_doc is not None
+        ):  # We allow a missing return docstring since most templates ignore it
             return_dict["description"] = return_doc
     for arg, schema in json_schema["properties"].items():
         if arg not in param_descriptions:
@@ -258,16 +263,22 @@ def _parse_google_format_docstring(
 
     # Parsing the arguments into a dictionary
     if docstring_args is not None:
-        docstring_args = "\n".join([line for line in docstring_args.split("\n") if line.strip()])  # Remove blank lines
+        docstring_args = "\n".join(
+            [line for line in docstring_args.split("\n") if line.strip()]
+        )  # Remove blank lines
         matches = args_split_re.findall(docstring_args)
-        args_dict = {match[0]: re.sub(r"\s*\n+\s*", " ", match[1].strip()) for match in matches}
+        args_dict = {
+            match[0]: re.sub(r"\s*\n+\s*", " ", match[1].strip()) for match in matches
+        }
     else:
         args_dict = {}
 
     return description, args_dict, returns
 
 
-def _convert_type_hints_to_json_schema(func: Callable, error_on_missing_type_hints: bool = True) -> Dict:
+def _convert_type_hints_to_json_schema(
+    func: Callable, error_on_missing_type_hints: bool = True
+) -> Dict:
     type_hints = get_type_hints(func)
     signature = inspect.signature(func)
 
@@ -278,7 +289,9 @@ def _convert_type_hints_to_json_schema(func: Callable, error_on_missing_type_hin
     required = []
     for param_name, param in signature.parameters.items():
         if param.annotation == inspect.Parameter.empty and error_on_missing_type_hints:
-            raise TypeHintParsingException(f"Argument {param.name} is missing a type hint in function {func.__name__}")
+            raise TypeHintParsingException(
+                f"Argument {param.name} is missing a type hint in function {func.__name__}"
+            )
         if param_name not in properties:
             properties[param_name] = {}
 
@@ -352,7 +365,9 @@ def _parse_type_hint(hint: str) -> Dict:
         final_type.update({"enum": [arg for arg in args if arg is not None]})
         return final_type
 
-    raise TypeHintParsingException("Couldn't parse this type hint, likely due to a custom class or object: ", hint)
+    raise TypeHintParsingException(
+        "Couldn't parse this type hint, likely due to a custom class or object: ", hint
+    )
 
 
 def _parse_union_type(args: tuple[Any, ...]) -> Dict:

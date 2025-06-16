@@ -1,36 +1,32 @@
-from typing import (
-    Any,
-    Callable,
-    Optional
-)
-import yaml
 import json
+from typing import Any, Callable
+
+import yaml
 from rich.panel import Panel
 from rich.text import Text
 
-from src.tools import AsyncTool
+from src.base.async_multistep_agent import (
+    AsyncMultiStepAgent,
+    PromptTemplates,
+    populate_template,
+)
 from src.exception import (
     AgentGenerationError,
     AgentParsingError,
+    AgentToolCallError,
     AgentToolExecutionError,
-    AgentToolCallError
 )
-from src.base.async_multistep_agent import (PromptTemplates,
-                                            populate_template,
-                                            AsyncMultiStepAgent)
-from src.memory import (ActionStep,
-                        ToolCall,
-                        AgentMemory)
-from src.logger import (LogLevel, 
-                        YELLOW_HEX, 
-                        logger)
-from src.models import Model, parse_json_if_needed, ChatMessage
+from src.logger import YELLOW_HEX, LogLevel
+from src.memory import ActionStep, AgentMemory, ToolCall
+from src.models import ChatMessage, Model, parse_json_if_needed
+from src.registry import register_agent
+from src.tools import AsyncTool
+from src.utils import assemble_project_path
 from src.utils.agent_types import (
     AgentAudio,
     AgentImage,
 )
-from src.registry import register_agent
-from src.utils import assemble_project_path
+
 
 @register_agent("deep_analyzer_agent")
 class DeepAnalyzerAgent(AsyncMultiStepAgent):
@@ -51,7 +47,7 @@ class DeepAnalyzerAgent(AsyncMultiStepAgent):
         description: str | None = None,
         provide_run_summary: bool = False,
         final_answer_checks: list[Callable] | None = None,
-        **kwargs
+        **kwargs,
     ):
         self.config = config
 
@@ -62,7 +58,7 @@ class DeepAnalyzerAgent(AsyncMultiStepAgent):
             max_steps=max_steps,
             add_base_tools=add_base_tools,
             verbosity_level=verbosity_level,
-            grammar= grammar,
+            grammar=grammar,
             managed_agents=managed_agents,
             step_callbacks=step_callbacks,
             planning_interval=planning_interval,
@@ -75,7 +71,7 @@ class DeepAnalyzerAgent(AsyncMultiStepAgent):
         template_path = assemble_project_path(self.config.template_path)
         with open(template_path, "r") as f:
             self.prompt_templates = yaml.safe_load(f)
-        
+
         self.system_prompt = self.initialize_system_prompt()
         self.user_prompt = self.initialize_user_prompt()
 
@@ -93,14 +89,13 @@ class DeepAnalyzerAgent(AsyncMultiStepAgent):
         return system_prompt
 
     def initialize_user_prompt(self) -> str:
-
         user_prompt = populate_template(
             self.prompt_templates["user_prompt"],
             variables={},
         )
 
         return user_prompt
-        
+
     def initialize_task_instruction(self) -> str:
         """Initialize the task instruction for the agent."""
         task_instruction = populate_template(
@@ -108,8 +103,10 @@ class DeepAnalyzerAgent(AsyncMultiStepAgent):
             variables={"task": self.task},
         )
         return task_instruction
-    
-    def _substitute_state_variables(self, arguments: dict[str, str] | str) -> dict[str, Any] | str:
+
+    def _substitute_state_variables(
+        self, arguments: dict[str, str] | str
+    ) -> dict[str, Any] | str:
         """Replace string values in arguments with their corresponding state values if they exist."""
         if isinstance(arguments, dict):
             return {
@@ -117,8 +114,10 @@ class DeepAnalyzerAgent(AsyncMultiStepAgent):
                 for key, value in arguments.items()
             }
         return arguments
-    
-    async def execute_tool_call(self, tool_name: str, arguments: dict[str, str] | str) -> Any:
+
+    async def execute_tool_call(
+        self, tool_name: str, arguments: dict[str, str] | str
+    ) -> Any:
         """
         Execute a tool or managed agent with the provided arguments.
 
@@ -132,7 +131,8 @@ class DeepAnalyzerAgent(AsyncMultiStepAgent):
         available_tools = {**self.tools, **self.managed_agents}
         if tool_name not in available_tools:
             raise AgentToolExecutionError(
-                f"Unknown tool {tool_name}, should be one of: {', '.join(available_tools)}.", self.logger
+                f"Unknown tool {tool_name}, should be one of: {', '.join(available_tools)}.",
+                self.logger,
             )
 
         # Get the tool and substitute state variables in arguments
@@ -143,9 +143,17 @@ class DeepAnalyzerAgent(AsyncMultiStepAgent):
         try:
             # Call tool with appropriate arguments
             if isinstance(arguments, dict):
-                return await tool(**arguments) if is_managed_agent else await tool(**arguments, sanitize_inputs_outputs=True)
+                return (
+                    await tool(**arguments)
+                    if is_managed_agent
+                    else await tool(**arguments, sanitize_inputs_outputs=True)
+                )
             elif isinstance(arguments, str):
-                return await tool(arguments) if is_managed_agent else await tool(arguments, sanitize_inputs_outputs=True)
+                return (
+                    await tool(arguments)
+                    if is_managed_agent
+                    else await tool(arguments, sanitize_inputs_outputs=True)
+                )
             else:
                 raise TypeError(f"Unsupported arguments type: {type(arguments)}")
 
@@ -181,7 +189,7 @@ class DeepAnalyzerAgent(AsyncMultiStepAgent):
                     "Please try again or use another tool"
                 )
             raise AgentToolExecutionError(error_msg, self.logger) from e
-    
+
     async def step(self, memory_step: ActionStep) -> None | Any:
         """
         Perform one step in the ReAct framework: the agent thinks, acts, and observes the result.
@@ -211,26 +219,38 @@ class DeepAnalyzerAgent(AsyncMultiStepAgent):
             memory_step.model_output_message.content = model_output
             memory_step.model_output = model_output
         except Exception as e:
-            raise AgentGenerationError(f"Error while generating output:\n{e}", self.logger) from e
+            raise AgentGenerationError(
+                f"Error while generating output:\n{e}", self.logger
+            ) from e
 
         if chat_message.tool_calls is None or len(chat_message.tool_calls) == 0:
             try:
                 chat_message = self.model.parse_tool_calls(chat_message)
             except Exception as e:
-                raise AgentParsingError(f"Error while parsing tool call from model output: {e}", self.logger)
+                raise AgentParsingError(
+                    f"Error while parsing tool call from model output: {e}", self.logger
+                )
         else:
             for tool_call in chat_message.tool_calls:
-                tool_call.function.arguments = parse_json_if_needed(tool_call.function.arguments)
+                tool_call.function.arguments = parse_json_if_needed(
+                    tool_call.function.arguments
+                )
 
         tool_call = chat_message.tool_calls[0]
         tool_name, tool_call_id = tool_call.function.name, tool_call.id
         tool_arguments = tool_call.function.arguments
-        memory_step.model_output = str(f"Called Tool: '{tool_name}' with arguments: {tool_arguments}")
-        memory_step.tool_calls = [ToolCall(name=tool_name, arguments=tool_arguments, id=tool_call_id)]
+        memory_step.model_output = str(
+            f"Called Tool: '{tool_name}' with arguments: {tool_arguments}"
+        )
+        memory_step.tool_calls = [
+            ToolCall(name=tool_name, arguments=tool_arguments, id=tool_call_id)
+        ]
 
         # Execute
         self.logger.log(
-            Panel(Text(f"Calling tool: '{tool_name}' with arguments: {tool_arguments}")),
+            Panel(
+                Text(f"Calling tool: '{tool_name}' with arguments: {tool_arguments}")
+            ),
             level=LogLevel.INFO,
         )
         if tool_name == "final_answer":

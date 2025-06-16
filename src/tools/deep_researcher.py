@@ -1,16 +1,15 @@
-import json
 import re
 import time
 from typing import List, Optional, Set, Tuple
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from src.models import model_manager
-from src.tools.web_searcher import WebSearcherTool, SearchResult
-from src.tools import AsyncTool, ToolResult
 from src.config import config
 from src.logger import logger
+from src.models import model_manager
 from src.registry import register_tool
-
+from src.tools import AsyncTool, ToolResult
+from src.tools.web_searcher import SearchResult, WebSearcherTool
 
 _DEEP_RESEARCHER_DESCRIPTION = """Performs comprehensive research on a topic through multi-level web searches and content analysis. 
 Returns a structured summary of findings with source attribution and relevance ratings."""
@@ -61,6 +60,7 @@ INSIGHT_MARKER_PATTERN = re.compile(r"^\s*(?:\d+\.|-|\*|•)\s*(.*)")
 # Pattern to detect relevance score, capturing the number (case-insensitive)
 RELEVANCE_SCORE_PATTERN = re.compile(r"relevance.*?:.*?(\d\.?\d*)", re.IGNORECASE)
 
+
 class ResearchInsight(BaseModel):
     """A single insight discovered during research."""
 
@@ -78,23 +78,42 @@ class ResearchInsight(BaseModel):
         source = self.source_title or self.source_url
         return f"{self.content} [Source: {source}]"
 
+
 class ResearchContext(BaseModel):
     """Research context for tracking research progress."""
+
     query: str = Field(description="The original research query")
-    insights: List[ResearchInsight] = Field(default_factory=list, description="Key insights discovered")
-    follow_up_queries: List[str] = Field(default_factory=list, description="Generated follow-up queries")
-    visited_urls: Set[str] = Field(default_factory=set, description="URLs visited during research")
-    current_depth: int = Field(default=0, description="Current depth of research exploration", ge=0)
-    max_depth: int = Field(default=2, description="Maximum depth of research to reach", ge=1)
+    insights: List[ResearchInsight] = Field(
+        default_factory=list, description="Key insights discovered"
+    )
+    follow_up_queries: List[str] = Field(
+        default_factory=list, description="Generated follow-up queries"
+    )
+    visited_urls: Set[str] = Field(
+        default_factory=set, description="URLs visited during research"
+    )
+    current_depth: int = Field(
+        default=0, description="Current depth of research exploration", ge=0
+    )
+    max_depth: int = Field(
+        default=2, description="Maximum depth of research to reach", ge=1
+    )
+
 
 class ResearchSummary(BaseModel):
     """Comprehensive summary of deep research results."""
 
     output: str = Field(default="", description="Formatted research summary")
     query: str = Field(description="The original research query")
-    insights: List[ResearchInsight] = Field(default_factory=list, description="Key insights discovered")
-    visited_urls: Set[str] = Field(default_factory=set, description="URLs visited during research")
-    depth_reached: int = Field(default=0, description="Maximum depth of research reached", ge=0)
+    insights: List[ResearchInsight] = Field(
+        default_factory=list, description="Key insights discovered"
+    )
+    visited_urls: Set[str] = Field(
+        default_factory=set, description="URLs visited during research"
+    )
+    depth_reached: int = Field(
+        default=0, description="Maximum depth of research reached", ge=0
+    )
 
     @model_validator(mode="after")
     def populate_output(self) -> "ResearchSummary":
@@ -161,6 +180,7 @@ class OptimizedQueryTool(AsyncTool):
         # In a real implementation, this would involve LLM interactions
         return query, filter_year
 
+
 class GenerateFollowUpsTool(AsyncTool):
     """Tool for generating follow-up queries based on insights."""
 
@@ -187,6 +207,7 @@ class GenerateFollowUpsTool(AsyncTool):
         # Placeholder for actual generation logic
         # In a real implementation, this would involve LLM interactions
         return follow_up_queries
+
 
 class ExtractInsightsTool(AsyncTool):
     """Tool for extracting insights from content."""
@@ -220,11 +241,13 @@ class ExtractInsightsTool(AsyncTool):
         },
     }
     output_type = "any"
+
     async def forward(self, insights: any) -> any:
         """Extract insights from content based on relevance to query."""
         # Placeholder for actual extraction logic
         # In a real implementation, this would involve LLM interactions
         return insights
+
 
 @register_tool("deep_researcher")
 class DeepResearcherTool(AsyncTool):
@@ -269,9 +292,11 @@ class DeepResearcherTool(AsyncTool):
             else 3
         )
 
-        self.model = model_manager.registed_models[self.deep_researcher_tool_config.model_id]
+        self.model = model_manager.registed_models[
+            self.deep_researcher_tool_config.model_id
+        ]
         self.web_searcher = WebSearcherTool()
-        self.web_searcher.fetch_content = True # Enable content fetching
+        self.web_searcher.fetch_content = True  # Enable content fetching
         super(DeepResearcherTool, self).__init__()
 
     async def forward(
@@ -288,13 +313,16 @@ class DeepResearcherTool(AsyncTool):
 
         try:
             optimized_query, filter_year = await self._generate_optimized_query(query)
-            await self._research_graph(context=context,
-                                 query=optimized_query,
-                                 filter_year=filter_year,
-                                 deadline=deadline
-                                 )
+            await self._research_graph(
+                context=context,
+                query=optimized_query,
+                filter_year=filter_year,
+                deadline=deadline,
+            )
         except Exception as e:
-            res_str = f"DeepResearchTool failed to complete the research cycle: {str(e)}"
+            res_str = (
+                f"DeepResearchTool failed to complete the research cycle: {str(e)}"
+            )
             logger.error(res_str)
             return ToolResult(
                 output=None,
@@ -304,7 +332,9 @@ class DeepResearcherTool(AsyncTool):
         # Prepare final summary reference
         reference = ResearchSummary(
             query=query,
-            insights=sorted(context.insights, key=lambda x: x.relevance_score, reverse=True)[:self.max_insights],
+            insights=sorted(
+                context.insights, key=lambda x: x.relevance_score, reverse=True
+            )[: self.max_insights],
             visited_urls=context.visited_urls,
             depth_reached=context.current_depth,
         )
@@ -323,19 +353,14 @@ class DeepResearcherTool(AsyncTool):
         try:
             prompt = OPTIMIZE_QUERY_PROMPT.format(query=query)
 
-            messages = [
-                {"role": "user", "content": prompt}
-            ]
-            tools = [
-                OptimizedQueryTool()
-            ]
+            messages = [{"role": "user", "content": prompt}]
+            tools = [OptimizedQueryTool()]
 
-            response = await self.model(
-                messages = messages,
-                tools_to_call_from=tools
+            response = await self.model(messages=messages, tools_to_call_from=tools)
+
+            logger.info(
+                f"DeepResearchTool Optimized query - Input tokens: {self.model.last_input_token_count}, Output tokens: {self.model.last_output_token_count}"
             )
-
-            logger.info(f"DeepResearchTool Optimized query - Input tokens: {self.model.last_input_token_count}, Output tokens: {self.model.last_output_token_count}")
 
             # Extract the query from the tool_call response
             if response and response.tool_calls and len(response.tool_calls) > 0:
@@ -352,7 +377,9 @@ class DeepResearcherTool(AsyncTool):
                 logger.warning(res)
                 return query, None
 
-            logger.info(f"DeepResearchTool generated optimized query: {optimized_query}")
+            logger.info(
+                f"DeepResearchTool generated optimized query: {optimized_query}"
+            )
 
             return optimized_query, filter_year
         except Exception as e:
@@ -372,7 +399,9 @@ class DeepResearcherTool(AsyncTool):
         if time.time() >= deadline or context.current_depth >= context.max_depth:
             return
 
-        logger.info(f"DeepResearchTool Research cycle at depth {context.current_depth + 1} - Query: {query}")
+        logger.info(
+            f"DeepResearchTool Research cycle at depth {context.current_depth + 1} - Query: {query}"
+        )
 
         # 1. Web search
         search_results = await self._search_web(query, filter_year)
@@ -382,10 +411,7 @@ class DeepResearcherTool(AsyncTool):
 
         # 2. Extract insights
         new_insights = await self._extract_insights(
-            context,
-            search_results,
-            context.query,
-            deadline
+            context, search_results, context.query, deadline
         )
 
         if not new_insights:
@@ -393,9 +419,7 @@ class DeepResearcherTool(AsyncTool):
 
         # 3. Generate follow-up queries
         follow_up_queries = await self._generate_follow_ups(
-            new_insights,
-            query,
-            context.query
+            new_insights, query, context.query
         )
         context.follow_up_queries.extend(follow_up_queries)
 
@@ -418,9 +442,9 @@ class DeepResearcherTool(AsyncTool):
                 )
                 tasks.append(task)  # Add the task to the list
 
-    async def _search_web(self,
-                    query: str,
-                    filter_year: Optional[int] = None) -> List[SearchResult]:
+    async def _search_web(
+        self, query: str, filter_year: Optional[int] = None
+    ) -> List[SearchResult]:
         """Perform web search for the given query."""
         search_response = await self.web_searcher.forward(
             query=query,
@@ -461,15 +485,14 @@ class DeepResearcherTool(AsyncTool):
             context.insights.extend(insights)
 
             # Log discovered insights
-            logger.info(f"DeepResearchTool found {len(insights)} insights in {rst.title or rst.url}.")
+            logger.info(
+                f"DeepResearchTool found {len(insights)} insights in {rst.title or rst.url}."
+            )
 
         return all_insights
 
     async def _generate_follow_ups(
-        self,
-        insights: List[ResearchInsight],
-        current_query: str,
-        original_query: str
+        self, insights: List[ResearchInsight], current_query: str, original_query: str
     ) -> List[str]:
         """Generate follow-up queries based on insights."""
         if not insights:
@@ -485,20 +508,15 @@ class DeepResearcherTool(AsyncTool):
             insights=insights_text,
         )
 
-        messages = [
-            {"role": "user", "content": prompt}
-        ]
-        tools = [
-            GenerateFollowUpsTool()
-        ]
+        messages = [{"role": "user", "content": prompt}]
+        tools = [GenerateFollowUpsTool()]
 
         # Get follow-up queries from LLM using structured output
-        response = await self.model(
-            messages=messages,
-            tools_to_call_from=tools
-        )
+        response = await self.model(messages=messages, tools_to_call_from=tools)
 
-        logger.info(f"DeepResearchTool Generate follow-ups - Input tokens: {self.model.last_input_token_count}, Output tokens: {self.model.last_output_token_count}")
+        logger.info(
+            f"DeepResearchTool Generate follow-ups - Input tokens: {self.model.last_input_token_count}, Output tokens: {self.model.last_output_token_count}"
+        )
 
         # Extract queries from the tool response
         queries = []
@@ -506,29 +524,25 @@ class DeepResearcherTool(AsyncTool):
             arguments = response.tool_calls[0].function.arguments
             queries = arguments.get("follow_up_queries", [])
 
-        return queries[:min(len(queries), self.max_follow_ups)]
+        return queries[: min(len(queries), self.max_follow_ups)]
 
     async def _analyze_content(
         self, content: str, url: str, title: str, query: str
     ) -> List[ResearchInsight]:
         """Extract insights from content based on relevance to query."""
         prompt = EXTRACT_INSIGHTS_PROMPT.format(
-            query=query, content=content  # Limit content size
+            query=query,
+            content=content,  # Limit content size
         )
 
-        messages = [
-            {"role": "user", "content": prompt}
-        ]
-        tools = [
-            ExtractInsightsTool()
-        ]
+        messages = [{"role": "user", "content": prompt}]
+        tools = [ExtractInsightsTool()]
 
-        response = await self.model(
-            messages=messages,
-            tools_to_call_from=tools
+        response = await self.model(messages=messages, tools_to_call_from=tools)
+
+        logger.info(
+            f"DeepResearchTool Extract insights - Input tokens: {self.model.last_input_token_count}, Output tokens: {self.model.last_output_token_count}"
         )
-
-        logger.info(f"DeepResearchTool Extract insights - Input tokens: {self.model.last_input_token_count}, Output tokens: {self.model.last_output_token_count}")
 
         insights = []
 
@@ -551,7 +565,9 @@ class DeepResearcherTool(AsyncTool):
 
         # Fallback: if no structured insights found, use fallback approach
         if not insights:
-            logger.info(f"Could not parse structured insights from LLM response for {url}. Using fallback.")
+            logger.info(
+                f"Could not parse structured insights from LLM response for {url}. Using fallback."
+            )
             insights.append(
                 ResearchInsight(
                     content=f"Failed to extract structured insights from content about {title or url}."[
@@ -566,12 +582,9 @@ class DeepResearcherTool(AsyncTool):
         return insights
 
     async def _summary(self, query: str, reference_materials: str) -> str:
+        model = model_manager.registed_models["gpt-4o-search-preview"]
 
-        model = model_manager.registed_models['gpt-4o-search-preview']
-
-        messages = [
-            {"role": "user", "content": query}
-        ]
+        messages = [{"role": "user", "content": query}]
         response = await model(
             messages=messages,
         )

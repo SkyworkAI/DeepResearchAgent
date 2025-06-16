@@ -1,13 +1,11 @@
-from dataclasses import dataclass
-from typing import Any, Dict, Optional
-
+from src.registry import register_tool
+from src.tools import AsyncTool, ToolResult
 from src.tools.executor.local_python_executor import (
     BASE_BUILTIN_MODULES,
     BASE_PYTHON_TOOLS,
     evaluate_python_code,
 )
-from src.tools import AsyncTool, ToolResult
-from src.registry import register_tool
+
 
 @register_tool("python_interpreter")
 class PythonInterpreterTool(AsyncTool):
@@ -29,7 +27,9 @@ class PythonInterpreterTool(AsyncTool):
         if authorized_imports is None:
             self.authorized_imports = list(set(BASE_BUILTIN_MODULES))
         else:
-            self.authorized_imports = list(set(BASE_BUILTIN_MODULES) | set(authorized_imports))
+            self.authorized_imports = list(
+                set(BASE_BUILTIN_MODULES) | set(authorized_imports)
+            )
         self.parameters = {
             "type": "object",
             "properties": {
@@ -48,7 +48,6 @@ class PythonInterpreterTool(AsyncTool):
         super().__init__(*args, **kwargs)
 
     async def forward(self, code: str) -> ToolResult:
-
         try:
             state = {}
             output = str(
@@ -62,13 +61,10 @@ class PythonInterpreterTool(AsyncTool):
 
             output = f"Stdout:\n{str(state['_print_outputs'])}\nOutput: {output}"
 
-            result = ToolResult(
-                output=output,
-                error = None
-            )
+            result = ToolResult(output=output, error=None)
         except Exception as e:
             result = ToolResult(
-                output = None,
+                output=None,
                 error=str(e),
             )
         return result

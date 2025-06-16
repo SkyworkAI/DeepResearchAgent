@@ -14,50 +14,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import importlib
-import inspect
 import json
-import os
-import re
-import tempfile
-import textwrap
-import time
-from abc import ABC, abstractmethod
-from collections import deque
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional, Set, Tuple, TypedDict, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+)
 
-import jinja2
 import yaml
-from huggingface_hub import create_repo, metadata_update, snapshot_download, upload_folder
-from jinja2 import StrictUndefined, Template
-from rich.rule import Rule
-from rich.text import Text
 from rich.panel import Panel
-from rich import box
-
+from rich.text import Text
 
 if TYPE_CHECKING:
-    import PIL.Image
+    pass
 
-from src.memory import (ActionStep,
-                        ToolCall)
-from src.models import (
-    ChatMessage,
-)
-from src.logger import (
-    LogLevel,
-)
-
-from src.tools import Tool
+from src.base.multistep_agent import MultiStepAgent, PromptTemplates, populate_template
 from src.exception import (
     AgentParsingError,
     AgentToolCallError,
     AgentToolExecutionError,
 )
-from src.base.multistep_agent import MultiStepAgent, PromptTemplates, populate_template
-from src.models import Model
+from src.logger import (
+    YELLOW_HEX,
+    LogLevel,
+)
+from src.memory import ActionStep, ToolCall
+from src.models import (
+    ChatMessage,
+    Model,
+)
+from src.tools import Tool
 
-from src.logger import logger, YELLOW_HEX
 
 class ToolCallingAgent(MultiStepAgent):
     """
@@ -80,7 +66,9 @@ class ToolCallingAgent(MultiStepAgent):
         **kwargs,
     ):
         prompt_templates = prompt_templates or yaml.safe_load(
-            importlib.resources.files("src.base.prompts").joinpath("toolcalling_agent.yaml").read_text()
+            importlib.resources.files("src.base.prompts")
+            .joinpath("toolcalling_agent.yaml")
+            .read_text()
         )
         super().__init__(
             tools=tools,
@@ -126,25 +114,37 @@ class ToolCallingAgent(MultiStepAgent):
             memory_step.model_output_message.content = model_output
             memory_step.model_output = model_output
         except Exception as e:
-            raise AgentGenerationError(f"Error while generating output:\n{e}", self.logger) from e
+            raise AgentGenerationError(
+                f"Error while generating output:\n{e}", self.logger
+            ) from e
 
         if chat_message.tool_calls is None or len(chat_message.tool_calls) == 0:
             try:
                 chat_message = self.model.parse_tool_calls(chat_message)
             except Exception as e:
-                raise AgentParsingError(f"Error while parsing tool call from model output: {e}", self.logger)
+                raise AgentParsingError(
+                    f"Error while parsing tool call from model output: {e}", self.logger
+                )
         else:
             for tool_call in chat_message.tool_calls:
-                tool_call.function.arguments = parse_json_if_needed(tool_call.function.arguments)
+                tool_call.function.arguments = parse_json_if_needed(
+                    tool_call.function.arguments
+                )
         tool_call = chat_message.tool_calls[0]  # type: ignore
         tool_name, tool_call_id = tool_call.function.name, tool_call.id
         tool_arguments = tool_call.function.arguments
-        memory_step.model_output = str(f"Called Tool: '{tool_name}' with arguments: {tool_arguments}")
-        memory_step.tool_calls = [ToolCall(name=tool_name, arguments=tool_arguments, id=tool_call_id)]
+        memory_step.model_output = str(
+            f"Called Tool: '{tool_name}' with arguments: {tool_arguments}"
+        )
+        memory_step.tool_calls = [
+            ToolCall(name=tool_name, arguments=tool_arguments, id=tool_call_id)
+        ]
 
         # Execute
         self.logger.log(
-            Panel(Text(f"Calling tool: '{tool_name}' with arguments: {tool_arguments}")),
+            Panel(
+                Text(f"Calling tool: '{tool_name}' with arguments: {tool_arguments}")
+            ),
             level=LogLevel.INFO,
         )
         if tool_name == "final_answer":
@@ -195,7 +195,9 @@ class ToolCallingAgent(MultiStepAgent):
             memory_step.observations = updated_information
             return None
 
-    def _substitute_state_variables(self, arguments: dict[str, str] | str) -> dict[str, Any] | str:
+    def _substitute_state_variables(
+        self, arguments: dict[str, str] | str
+    ) -> dict[str, Any] | str:
         """Replace string values in arguments with their corresponding state values if they exist."""
         if isinstance(arguments, dict):
             return {
@@ -218,7 +220,8 @@ class ToolCallingAgent(MultiStepAgent):
         available_tools = {**self.tools, **self.managed_agents}
         if tool_name not in available_tools:
             raise AgentToolExecutionError(
-                f"Unknown tool {tool_name}, should be one of: {', '.join(available_tools)}.", self.logger
+                f"Unknown tool {tool_name}, should be one of: {', '.join(available_tools)}.",
+                self.logger,
             )
 
         # Get the tool and substitute state variables in arguments
@@ -229,9 +232,17 @@ class ToolCallingAgent(MultiStepAgent):
         try:
             # Call tool with appropriate arguments
             if isinstance(arguments, dict):
-                return tool(**arguments) if is_managed_agent else tool(**arguments, sanitize_inputs_outputs=True)
+                return (
+                    tool(**arguments)
+                    if is_managed_agent
+                    else tool(**arguments, sanitize_inputs_outputs=True)
+                )
             elif isinstance(arguments, str):
-                return tool(arguments) if is_managed_agent else tool(arguments, sanitize_inputs_outputs=True)
+                return (
+                    tool(arguments)
+                    if is_managed_agent
+                    else tool(arguments, sanitize_inputs_outputs=True)
+                )
             else:
                 raise TypeError(f"Unsupported arguments type: {type(arguments)}")
 

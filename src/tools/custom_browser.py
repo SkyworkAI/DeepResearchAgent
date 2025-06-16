@@ -1,22 +1,25 @@
 from dotenv import load_dotenv
+
 load_dotenv(verbose=True)
 
 import asyncio
 import base64
 import json
-from typing import Generic, Optional, TypeVar, Any
+from typing import Any, Generic, Optional, TypeVar
+
 from browser_use import Browser as BrowserUseBrowser
 from browser_use import BrowserConfig
 from browser_use.browser.context import BrowserContext, BrowserContextConfig
 from browser_use.dom.service import DomService
 from pydantic import field_validator
 from pydantic_core.core_schema import ValidationInfo
-from src.tools import AsyncTool, ToolResult
-from src.tools.web_searcher import WebSearcherTool
-from src.tools.web_fetcher import fetch_url
+
 from src.config import config
-from src.tools.markdown.mdconvert import MarkitdownConverter
 from src.logger import logger
+from src.tools import AsyncTool, ToolResult
+from src.tools.markdown.mdconvert import MarkitdownConverter
+from src.tools.web_fetcher import fetch_url
+from src.tools.web_searcher import WebSearcherTool
 
 _BROWSER_DESCRIPTION = """\
 A powerful browser automation tool that allows interaction with web pages through various actions.
@@ -67,7 +70,7 @@ class ExtractContentTool(AsyncTool):
         },
         "required": ["extracted_content"],
     }
-    output_type = 'any'
+    output_type = "any"
 
     async def forward(self, extracted_content) -> Any:
         """
@@ -175,10 +178,9 @@ class BrowserUseTool(AsyncTool, Generic[Context]):
             "extract_content": ["goal"],
         },
     }
-    output_type = 'any'
+    output_type = "any"
 
     def __init__(self, model):
-
         self.browser_config = config.browser
 
         self.browser = None
@@ -256,18 +258,18 @@ class BrowserUseTool(AsyncTool, Generic[Context]):
         return self.context
 
     async def execute(
-            self,
-            action: str,
-            url: Optional[str] = None,
-            index: Optional[int] = None,
-            text: Optional[str] = None,
-            scroll_amount: Optional[int] = None,
-            tab_id: Optional[int] = None,
-            query: Optional[str] = None,
-            goal: Optional[str] = None,
-            keys: Optional[str] = None,
-            seconds: Optional[int] = None,
-            **kwargs,
+        self,
+        action: str,
+        url: Optional[str] = None,
+        index: Optional[int] = None,
+        text: Optional[str] = None,
+        scroll_amount: Optional[int] = None,
+        tab_id: Optional[int] = None,
+        query: Optional[str] = None,
+        goal: Optional[str] = None,
+        keys: Optional[str] = None,
+        seconds: Optional[int] = None,
+        **kwargs,
     ) -> ToolResult:
         """
         Execute a specified browser action.
@@ -322,9 +324,7 @@ class BrowserUseTool(AsyncTool, Generic[Context]):
                             error="Query is required for 'web_search' action"
                         )
                     # Execute the web search and return results directly without browser navigation
-                    search_response = self.web_searcher.forward(
-                        query=query
-                    )
+                    search_response = self.web_searcher.forward(query=query)
                     # Navigate to the first search result
                     first_search_result = search_response.results[0]
                     url_to_navigate = first_search_result.url
@@ -461,13 +461,9 @@ Extraction goal: {goal}
 Page content:
 {content[:min(len(content), max_content_length)]}
 """
-                    messages = [
-                        {"role": "user", "content": prompt}
-                    ]
+                    messages = [{"role": "user", "content": prompt}]
 
-                    tools = [
-                        ExtractContentTool()
-                    ]
+                    tools = [ExtractContentTool()]
 
                     # Use LLM to extract content with required function calling
                     response = self.model(
@@ -583,7 +579,6 @@ Page content:
         """Clean up browser resources."""
 
         async with self.lock:
-
             if self.context is not None:
                 await self.context.close()
                 self.context = None
@@ -613,19 +608,18 @@ Page content:
         return tool
 
     async def forward(
-            self,
-            action: str,
-            url: Optional[str] = None,
-            index: Optional[int] = None,
-            text: Optional[str] = None,
-            scroll_amount: Optional[int] = None,
-            tab_id: Optional[int] = None,
-            query: Optional[str] = None,
-            goal: Optional[str] = None,
-            keys: Optional[str] = None,
-            seconds: Optional[int] = None,
-        ) -> ToolResult:
-
+        self,
+        action: str,
+        url: Optional[str] = None,
+        index: Optional[int] = None,
+        text: Optional[str] = None,
+        scroll_amount: Optional[int] = None,
+        tab_id: Optional[int] = None,
+        query: Optional[str] = None,
+        goal: Optional[str] = None,
+        keys: Optional[str] = None,
+        seconds: Optional[int] = None,
+    ) -> ToolResult:
         res = await self.execute(
             action=action,
             url=url,
@@ -636,7 +630,7 @@ Page content:
             query=query,
             goal=goal,
             keys=keys,
-            seconds=seconds
+            seconds=seconds,
         )
 
         return res

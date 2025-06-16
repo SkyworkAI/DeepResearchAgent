@@ -1,14 +1,9 @@
-import warnings
-from typing import Dict, List, Optional, Any
-from dataclasses import asdict, dataclass
-import os
-from src.models.base import (ApiModel,
-                             ChatMessage,
-                             MessageRole,
-                             tool_role_conversions,
-                             )
-from src.models.message_manager import (
-    MessageManager
+from typing import Any
+
+from src.models.base import (
+    ApiModel,
+    ChatMessage,
+    MessageRole,
 )
 
 
@@ -174,7 +169,9 @@ class AmazonBedrockServerModel(ApiModel):
         response = self.client.converse(**completion_kwargs)
 
         # Get first message
-        response["output"]["message"]["content"] = response["output"]["message"]["content"][0]["text"]
+        response["output"]["message"]["content"] = response["output"]["message"][
+            "content"
+        ][0]["text"]
 
         self._last_input_token_count = response["usage"]["inputTokens"]
         self._last_output_token_count = response["usage"]["outputTokens"]

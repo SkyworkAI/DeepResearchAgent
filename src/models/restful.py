@@ -1,43 +1,27 @@
-import warnings
-from typing import Dict, List, Optional, Any
-from copy import deepcopy
+from typing import Any, Dict, List, Optional
+
 import requests
 
-from src.models.base import (ApiModel,
-                             ChatMessage,
-                             tool_role_conversions,
-                             MessageRole)
+from src.models.base import ApiModel, ChatMessage, tool_role_conversions
 from src.models.message_manager import MessageManager
 from src.proxy.local_proxy import PROXY_URL
 
 
-class RestfulClient():
-    def __init__(self,
-                 api_base: str,
-                 api_key: str,
-                 http_client=None):
+class RestfulClient:
+    def __init__(self, api_base: str, api_key: str, http_client=None):
         self.api_base = api_base
         self.api_key = api_key
         self.http_client = http_client
 
-        self.url = 'restful_api_url'
+        self.url = "restful_api_url"
 
-    def completion(self,
-                   model,
-                   messages,
-                   tools,
-                   tool_choice,
-                   **kwargs):
-
+    def completion(self, model, messages, tools, tool_choice, **kwargs):
         proxies = {
             "http": PROXY_URL,
             "https": PROXY_URL,
         }
 
-        headers = {
-            "app_key": self.api_key,
-            "Content-Type": "application/json"
-        }
+        headers = {"app_key": self.api_key, "Content-Type": "application/json"}
 
         model = model.split("/")[-1]
         data = {
@@ -111,14 +95,14 @@ class RestfulModel(ApiModel):
         return RestfulClient(api_base=self.api_base, api_key=self.api_key)
 
     def _prepare_completion_kwargs(
-            self,
-            messages: List[Dict[str, str]],
-            stop_sequences: Optional[List[str]] = None,
-            grammar: Optional[str] = None,
-            tools_to_call_from: Optional[List[Any]] = None,
-            custom_role_conversions: dict[str, str] | None = None,
-            convert_images_to_image_urls: bool = False,
-            **kwargs,
+        self,
+        messages: List[Dict[str, str]],
+        stop_sequences: Optional[List[str]] = None,
+        grammar: Optional[str] = None,
+        tools_to_call_from: Optional[List[Any]] = None,
+        custom_role_conversions: dict[str, str] | None = None,
+        convert_images_to_image_urls: bool = False,
+        **kwargs,
     ) -> Dict:
         """
         Prepare parameters required for model invocation, handling parameter priorities.
@@ -152,8 +136,12 @@ class RestfulModel(ApiModel):
         if tools_to_call_from:
             completion_kwargs.update(
                 {
-                    "tools": [self.message_manager.get_tool_json_schema(tool,
-                                   model_id=self.model_id) for tool in tools_to_call_from],
+                    "tools": [
+                        self.message_manager.get_tool_json_schema(
+                            tool, model_id=self.model_id
+                        )
+                        for tool in tools_to_call_from
+                    ],
                     "tool_choice": "required",
                 }
             )
@@ -161,7 +149,9 @@ class RestfulModel(ApiModel):
         # Finally, use the passed-in kwargs to override all settings
         completion_kwargs.update(kwargs)
 
-        completion_kwargs = self.message_manager.get_clean_completion_kwargs(completion_kwargs)
+        completion_kwargs = self.message_manager.get_clean_completion_kwargs(
+            completion_kwargs
+        )
 
         return completion_kwargs
 
@@ -173,7 +163,6 @@ class RestfulModel(ApiModel):
         tools_to_call_from: Optional[List[Any]] = None,
         **kwargs,
     ) -> ChatMessage:
-
         completion_kwargs = self._prepare_completion_kwargs(
             messages=messages,
             stop_sequences=stop_sequences,
@@ -191,7 +180,9 @@ class RestfulModel(ApiModel):
         self.last_output_token_count = response.usage.completion_tokens
 
         first_message = ChatMessage.from_dict(
-            response.choices[0].message.model_dump(include={"role", "content", "tool_calls"}),
+            response.choices[0].message.model_dump(
+                include={"role", "content", "tool_calls"}
+            ),
             raw=response,
         )
         return self.postprocess_message(first_message, tools_to_call_from)

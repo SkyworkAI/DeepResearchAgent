@@ -49,7 +49,9 @@ def question_scorer(
 
         # check length is the same
         if len(gt_elems) != len(ma_elems):
-            warnings.warn("Answer lists have different lengths, returning False.", UserWarning)
+            warnings.warn(
+                "Answer lists have different lengths, returning False.", UserWarning
+            )
             return False
 
         # compare each element as float or str
@@ -61,7 +63,8 @@ def question_scorer(
             else:
                 # we do not remove punct since comparisons can include punct
                 comparisons.append(
-                    normalize_str(ma_elem, remove_punct=False) == normalize_str(gt_elem, remove_punct=False)
+                    normalize_str(ma_elem, remove_punct=False)
+                    == normalize_str(gt_elem, remove_punct=False)
                 )
         return all(comparisons)
 
@@ -92,8 +95,12 @@ def check_close_call(prediction, true_answer, is_correct):
             return is_correct
         else:
             if (
-                check_prediction_contains_answer_letters_in_order(str(prediction), str(true_answer))
-                and len(str(true_answer)) * 0.5 <= len(str(prediction)) <= len(str(true_answer)) * 2
+                check_prediction_contains_answer_letters_in_order(
+                    str(prediction), str(true_answer)
+                )
+                and len(str(true_answer)) * 0.5
+                <= len(str(prediction))
+                <= len(str(true_answer)) * 2
             ):
                 print(f"Close call: {prediction} vs {true_answer}")
                 return True
