@@ -234,4 +234,4 @@ Contributions and suggestions are welcome! Feel free to open issues or submit pu
 
 ### 🇨🇳 中文版说明文档
 
-如果你更习惯阅读中文说明文档，请查阅 [README.zh.md](./README.zh.md)。
+如果你更习惯阅读中文说明文档，请查阅 [README.zh.md](./README_CN.md)。
