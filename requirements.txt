@@ -35,3 +35,4 @@ fastmcp>=2.8.1
 httpx_aiohttp>=0.1.6
 inflection>=0.5.1
 mmengine>=0.10.7
+RestrictedPython
