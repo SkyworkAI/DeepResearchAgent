@@ -1,3 +1,4 @@
+import ast
 #!/usr/bin/env python
 # coding=utf-8
 
@@ -516,37 +517,150 @@ class Tool:
             repo_type="space",
             cache_dir=kwargs.get("cache_dir"),
             force_download=kwargs.get("force_download"),
-            proxies=kwargs.get("proxies"),
-            revision=kwargs.get("revision"),
-            subfolder=kwargs.get("subfolder"),
-            local_files_only=kwargs.get("local_files_only"),
-        )
+def _create_safe_execution_environment():
+    """
+    Creates a safe execution environment for the CodeInterpreter.
+    This environment restricts access to built-in functions to a predefined whitelist,
+    preventing the execution of malicious code.
 
-        tool_code = Path(tool_file).read_text()
-        return Tool.from_code(tool_code, **kwargs)
+    Note: While this provides a basic level of security, it is not foolproof.
+    For high-security applications, consider using more robust sandboxing solutions
+    like Docker containers or dedicated sandboxing libraries.
+    """
+    # Whitelist of safe built-in functions
+    safe_builtins = {
+        'abs', 'all', 'any', 'ascii', 'bin', 'bool', 'bytearray', 'bytes', 'callable',
+        'chr', 'complex', 'dict', 'divmod', 'enumerate', 'filter', 'float', 'format',
+        'frozenset', 'getattr', 'hasattr', 'hash', 'hex', 'id', 'int', 'isinstance',
+        'issubclass', 'iter', 'len', 'list', 'map', 'max', 'min', 'next', 'object',
+        'oct', 'ord', 'pow', 'print', 'property', 'range', 'repr', 'reversed', 'round',
+        'set', 'slice', 'sorted', 'str', 'sum', 'super', 'tuple', 'type', 'vars', 'zip',
+        'True', 'False', 'None'
+    }
 
-    @classmethod
-    def from_code(cls, tool_code: str, **kwargs):
-        module = types.ModuleType("dynamic_tool")
+    # Create the safe builtins dictionary from the whitelist
+    builtins_dict = {k: __builtins__[k] for k in safe_builtins if k in __builtins__}
 
-        exec(tool_code, module.__dict__)
+    # Add common and safe exception classes
+    for exc_name in dir(__builtins__):
+        exc = getattr(__builtins__, exc_name)
+        if isinstance(exc, type) and issubclass(exc, BaseException):
+            builtins_dict[exc_name] = exc
 
-        # Find the Tool subclass
-        tool_class = next(
-            (
-                obj
-                for _, obj in inspect.getmembers(module, inspect.isclass)
-                if issubclass(obj, Tool) and obj is not Tool
-            ),
-            None,
-        )
+    return {"__builtins__": builtins_dict}
 
-        if tool_class is None:
-            raise ValueError("No Tool subclass found in the code.")
 
-        if not isinstance(tool_class.inputs, dict):
-            tool_class.inputs = ast.literal_eval(tool_class.inputs)
+class CodeInterpreter:
+    """
+    A class to interpret and execute Python code in a sandboxed environment.
+    """
 
+    def __init__(self):
+        """
+        Initializes the CodeInterpreter with a sandboxed environment.
+        """
+        self.globals = _create_safe_execution_environment()
+        self.locals = {}
+
+    def __call__(self, code: str) -> str:
+        """
+        Execute the given Python code.
+
+        Args:
+            code (str): The Python code to execute.
+
+        Returns:
+            str: The output of the executed code.
+        """
+        old_stdout = sys.stdout
+        redirected_output = sys.stdout = StringIO()
+        try:
+            exec(code, self.globals, self.locals)
+            output = redirected_output.getvalue()
+        except Exception as e:
+            output = str(e)
+        finally:
+            sys.stdout = old_stdout
+        return output
+                ast.List, ast.Tuple, ast.Dict, ast.Set,
+                ast.ListComp, ast.DictComp, ast.SetComp,
+                ast.Call, ast.keyword, ast.Subscript, ast.Index, ast.Slice,
+                ast.Module, ast.Interactive, ast.Suite
+            )
+            return isinstance(node, safe_nodes)
+
+        def validate_ast(node):
+            """Recursively validate AST nodes."""
+            if not is_safe_ast_node(node):
+                return False
+            
+            # Check for dangerous function calls
+            if isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Name):
+                    dangerous_funcs = {'exec', 'eval', 'compile', '__import__', 'open', 'input'}
+                    if node.func.id in dangerous_funcs:
+                        return False
+                elif isinstance(node.func, ast.Attribute):
+                    # Block access to dangerous attributes
+                    dangerous_attrs = {'__import__', '__builtins__', '__globals__', '__locals__'}
+                    if node.func.attr in dangerous_attrs:
+                        return False
+            
+            # Check for import statements
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                return False
+            
+            # Recursively check child nodes
+            for child in ast.iter_child_nodes(node):
+                if not validate_ast(child):
+                    return False
+            
+            return True
+
+        # Safe built-ins for code execution
+        safe_builtins = {
+            'abs': abs, 'all': all, 'any': any, 'bin': bin, 'bool': bool,
+            'chr': chr, 'dict': dict, 'divmod': divmod, 'enumerate': enumerate,
+            'filter': filter, 'float': float, 'hex': hex, 'int': int,
+            'len': len, 'list': list, 'map': map, 'max': max, 'min': min,
+            'oct': oct, 'ord': ord, 'pow': pow, 'range': range, 'reversed': reversed,
+            'round': round, 'set': set, 'sorted': sorted, 'str': str, 'sum': sum,
+            'tuple': tuple, 'type': type, 'zip': zip, 'print': print
+        }
+        
+        output_capture = io.StringIO()
+        
+        try:
+            # Parse the code into an AST
+            tree = ast.parse(code, mode='exec')
+            
+            # Validate the AST for safety
+            if not validate_ast(tree):
+                return "Error: Code contains unsafe operations"
+            
+            # Compile the validated AST
+            compiled_code = compile(tree, '<string>', 'exec')
+            
+            # Create restricted execution environment
+            restricted_globals = {
+                '__builtins__': safe_builtins,
+            }
+            restricted_locals = {}
+            
+            # Redirect stdout and stderr to capture output
+            with redirect_stdout(output_capture), redirect_stderr(output_capture):
+                exec(compiled_code, restricted_globals, restricted_locals)
+            
+            output = output_capture.getvalue()
+            
+        except SyntaxError as e:
+            output = f"Syntax Error: {e}"
+        except Exception as e:
+            output = f"Error: {e}"
+        finally:
+            output_capture.close()
+        
+        return output
         return tool_class(**kwargs)
 
     @staticmethod
