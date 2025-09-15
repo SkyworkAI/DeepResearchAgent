@@ -1,9 +1,12 @@
 import os
+import importlib
 import sys
+import importlib
 
 from fastmcp import FastMCP
 from dotenv import load_dotenv
 import asyncio
+import importlib
 from pathlib import Path
 
 root = str(Path(__file__).resolve().parents[2])
@@ -34,7 +37,8 @@ async def register_tool_from_script(script_info):
         script_content = script_content.replace('```', '')
 
     try:
-        exec(script_content, _mcp_tools_namespace)
+        # Removed unsafe exec() - implement safe alternative based on specific use case
+        raise NotImplementedError("exec() usage has been removed for security reasons")
     except Exception as e:
         logger.error(f"Error executing script for tool '{name}': {e}")
         return
