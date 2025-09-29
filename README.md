@@ -11,8 +11,7 @@ English | [简体中文](README_CN.md) | [🌐 **Website**](https://skyworkai.gi
 > 👉 [https://github.com/DVampire/AgentWorld](https://github.com/DVampire/AgentWorld)  
 > 📄 [https://arxiv.org/abs/2506.12508](https://arxiv.org/abs/2506.12508)
 ## Introduction
-image.png
-DeepResearchAgent is a hierarchical multi-agent system designed not only for deep research tasks but also for general-purpose task solving. The framework leverages a top-level planning agent to coordinate multiple specialized lower-level agents, enabling automated task decomposition and efficient execution across diverse and complex domains.
+**DeepResearchAgent** is a hierarchical multi-agent system designed not only for deep research tasks but also for general-purpose task solving. The framework leverages a top-level planning agent to coordinate multiple specialized lower-level agents, enabling automated task decomposition and efficient execution across diverse and complex domains.
 
 > 🌐 **Check out our interactive website**: [https://skyworkai.github.io/DeepResearchAgent/](https://skyworkai.github.io/DeepResearchAgent/) - Explore the architecture, view experiments, and learn more about our research!
 
