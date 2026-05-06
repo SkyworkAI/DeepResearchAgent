@@ -10,7 +10,7 @@ See https://docs.litellm.ai/docs/providers for the full list.
 import json
 from typing import Any, Dict, List, Optional, Type, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from src.message.types import Message
 from src.model.openai.serializer import OpenAIChatSerializer
@@ -94,13 +94,15 @@ class ChatLiteLLM(BaseModel):
                     params["tools"] = formatted_tools
 
             if response_format:
-                if isinstance(response_format, type) and issubclass(response_format, BaseModel):
-                    params["response_format"] = OpenAIChatSerializer.serialize_response_format(
-                        response_format
+                if isinstance(response_format, type) and issubclass(
+                    response_format, BaseModel
+                ):
+                    params["response_format"] = (
+                        OpenAIChatSerializer.serialize_response_format(response_format)
                     )
                 elif isinstance(response_format, BaseModel):
-                    params["response_format"] = OpenAIChatSerializer.serialize_response_format(
-                        response_format
+                    params["response_format"] = (
+                        OpenAIChatSerializer.serialize_response_format(response_format)
                     )
                 elif isinstance(response_format, dict):
                     params["response_format"] = response_format
@@ -128,7 +130,11 @@ class ChatLiteLLM(BaseModel):
         response_format: Optional[Union[Type[BaseModel], BaseModel, Dict]] = None,
     ) -> LLMResponse:
         try:
-            resp_dict = response.model_dump() if hasattr(response, "model_dump") else dict(response)
+            resp_dict = (
+                response.model_dump()
+                if hasattr(response, "model_dump")
+                else dict(response)
+            )
 
             if not resp_dict.get("choices"):
                 return LLMResponse(
@@ -172,8 +178,10 @@ class ChatLiteLLM(BaseModel):
                     ),
                 )
 
-            elif response_format and isinstance(response_format, type) and issubclass(
-                response_format, BaseModel
+            elif (
+                response_format
+                and isinstance(response_format, type)
+                and issubclass(response_format, BaseModel)
             ):
                 content = message.get("content", "")
                 if not content:
