@@ -12,6 +12,7 @@ google-generativeai>=0.8.5
 # LLM providers
 openai>=1.0.0
 anthropic>=0.69.0
+litellm>=1.60.0,<2.0.0
 
 # Async utilities
 aiohttp>=3.8.0
