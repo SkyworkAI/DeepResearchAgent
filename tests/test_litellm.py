@@ -8,18 +8,17 @@ Tests cover:
 - drop_params=True default
 """
 
-import os
 import sys
 import types
 import pytest
-from unittest.mock import patch, Mock, AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from pathlib import Path
 
 root = str(Path(__file__).resolve().parents[1])
 sys.path.append(root)
 
 from src.model.litellm.chat import ChatLiteLLM
-from src.model.types import ModelConfig, LLMResponse
+from src.model.types import ModelConfig
 
 
 class TestChatLiteLLMAttributes:
@@ -186,9 +185,9 @@ class TestManagerLiteLLMRegistration:
     def test_litellm_in_allowed_providers(self):
         from src.model.manager import ModelManager
 
-        manager = ModelManager()
+        ModelManager()
         try:
-            config = ModelConfig(
+            ModelConfig(
                 model_name="litellm/test",
                 model_id="openai/gpt-4o",
                 model_type="chat/completions",
