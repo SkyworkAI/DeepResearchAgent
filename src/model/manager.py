@@ -18,6 +18,7 @@ from src.model.openai.embedding import EmbeddingOpenAI
 from src.model.openrouter.chat import ChatOpenRouter
 from src.model.anthropic.chat import ChatAnthropic
 from src.model.google.chat import ChatGoogle
+from src.model.litellm.chat import ChatLiteLLM
 from src.message.types import Message
 from src.logger import logger
 
@@ -37,7 +38,7 @@ class ModelManager:
     def __init__(self):
         """Initialize the manager."""
         self.models: Dict[str, ModelConfig] = {}
-        self.model_clients: Dict[str, Union[ChatOpenAI, ResponseOpenAI, TranscribeOpenAI, EmbeddingOpenAI, ChatOpenRouter, ChatAnthropic]] = {}
+        self.model_clients: Dict[str, Union[ChatOpenAI, ResponseOpenAI, TranscribeOpenAI, EmbeddingOpenAI, ChatOpenRouter, ChatAnthropic, ChatLiteLLM]] = {}
         
         # Default parameters
         self.max_tokens: int = 16384
@@ -66,6 +67,7 @@ class ModelManager:
         await self._initialize_openrouter_models()
         await self._initialize_anthropic_models()
         await self._initialize_google_models()
+        await self._initialize_litellm_models()
         logger.info(f"| Model manager initialized successfully with {len(self.models)} models.")
     
     async def _initialize_openai_models(self):
@@ -783,9 +785,43 @@ class ModelManager:
             self.models[config.model_name] = config
             await self._create_client(config)
     
+    async def _initialize_litellm_models(self):
+        """Initialize LiteLLM models — only if LITELLM_API_KEY or LITELLM_MODEL is set."""
+        if not os.getenv("LITELLM_API_KEY") and not os.getenv("LITELLM_MODEL"):
+            return
+
+        litellm_model = os.getenv("LITELLM_MODEL", "openai/gpt-4o")
+        config = ModelConfig(
+            model_name=f"litellm/{litellm_model}",
+            model_id=litellm_model,
+            model_type="chat/completions",
+            provider="litellm",
+            api_base=os.getenv("LITELLM_API_BASE"),
+            api_key=os.getenv("LITELLM_API_KEY"),
+            temperature=self.default_temperature,
+            max_completion_tokens=self.max_tokens,
+            supports_streaming=True,
+            supports_functions=True,
+            supports_vision=True,
+            output_version=None,
+            fallback_model=None,
+        )
+        self.models[config.model_name] = config
+        await self._create_client(config)
+
     async def _create_client(self, config: ModelConfig) -> None:
         """Create and cache a client for the given model config."""
-        if config.provider == "openrouter":
+        if config.provider == "litellm":
+            client = ChatLiteLLM(
+                model=config.model_id,
+                api_key=config.api_key,
+                api_base=config.api_base,
+                reasoning=config.reasoning if config.reasoning else None,
+                temperature=config.temperature or self.default_temperature,
+                max_completion_tokens=config.max_completion_tokens or self.max_tokens,
+            )
+            logger.info(f"| Created ChatLiteLLM client for {config.model_name}")
+        elif config.provider == "openrouter":
             # OpenRouter models (only chat/completions supported for now)
             if config.model_type == "chat/completions":
                 client = ChatOpenRouter(
@@ -871,7 +907,7 @@ class ModelManager:
     
     async def register_model(self, config: ModelConfig) -> None:
         """Register a new model configuration."""
-        if config.provider not in ["openai", "openrouter", "anthropic", "google"]:
+        if config.provider not in ["openai", "openrouter", "anthropic", "google", "litellm"]:
             raise ValueError(f"Only OpenAI, OpenRouter, Anthropic, and Google models are supported. Got provider: {config.provider}")
         
         self.models[config.model_name] = config
