@@ -5,11 +5,12 @@ import asyncio
 
 from src.tool.default_tools.web_fetcher import WebFetcherTool
 from src.tool.default_tools.search import (
-    FirecrawlSearch, 
-    SearchItem, 
-    BraveSearch, 
-    BingSearch, 
-    GoogleSearch, 
+    FirecrawlSearch,
+    CrwSearch,
+    SearchItem,
+    BraveSearch,
+    BingSearch,
+    GoogleSearch,
     DDGSSearch
 )
 from src.logger import logger
@@ -68,6 +69,7 @@ class WebSearcherTool(Tool):
         # Initialize search engines and content fetcher
         self.search_tools = {
             # "firecrawl_search": FirecrawlSearch(),
+            # "crw_search": CrwSearch(),
             # "bing_search": BingSearch(),
             "ddgs_search": DDGSSearch(),
         }
