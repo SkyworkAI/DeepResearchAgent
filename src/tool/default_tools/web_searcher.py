@@ -10,7 +10,8 @@ from src.tool.default_tools.search import (
     BraveSearch, 
     BingSearch, 
     GoogleSearch, 
-    DDGSSearch
+    DDGSSearch,
+    TavilySearch,
 )
 from src.logger import logger
 from src.tool.types import Tool, ToolResponse, ToolExtra
@@ -69,6 +70,7 @@ class WebSearcherTool(Tool):
         self.search_tools = {
             # "firecrawl_search": FirecrawlSearch(),
             # "bing_search": BingSearch(),
+            # "tavily_search": TavilySearch(),   # set TAVILY_API_KEY to enable
             "ddgs_search": DDGSSearch(),
         }
         self.content_fetcher = WebFetcherTool()

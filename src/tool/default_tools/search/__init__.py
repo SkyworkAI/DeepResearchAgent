@@ -4,6 +4,7 @@ from .brave_search import BraveSearch
 from .bing_search import BingSearch
 from .google_search import GoogleSearch
 from .ddgs_search import DDGSSearch
+from .tavily_search import TavilySearch
 
 
 __all__ = [
@@ -13,4 +14,5 @@ __all__ = [
     "BingSearch",
     "GoogleSearch",
     "DDGSSearch",
+    "TavilySearch",
 ]

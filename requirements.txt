@@ -120,3 +120,4 @@ dirtyjson>=1.0.8
 backtrader
 empyrical
 polars
+tavily-python>=0.7.12
