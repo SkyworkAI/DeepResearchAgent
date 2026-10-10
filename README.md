@@ -57,6 +57,9 @@ DeepResearchAgent/
 
 ## Optional: run a Tool-Calling Agent
 
+For a standalone, keyless web search and page fetching example using the project's
+MCP adapter, see [Parallel Search MCP](examples/parallel_search_mcp.md).
+
 Prerequisites:
 - Install dependencies in your environment
 - Copy `.env.template` to `.env` and set a model API key (e.g. `OPENROUTER_API_KEY=...`)

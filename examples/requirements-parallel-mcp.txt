@@ -1,0 +1,2 @@
+# Standalone MCP example; no model or trading dependencies needed.
+langchain-mcp-adapters>=0.3.2,<0.4
