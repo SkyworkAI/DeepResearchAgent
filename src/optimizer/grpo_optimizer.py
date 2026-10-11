@@ -775,9 +775,9 @@ Historical Reflections from Previous Tasks:
                             logger.info(f"| 🔄 Re-running agent with updated trainable variables...")
                             agent_response = await agent(task=task, files=files, ctx=agent_ctx)
                             agent_response_extra_data = agent_response.extra.data if agent_response.extra and agent_response.extra.data else None
-                            current_result = agent_response_extra_data['result']
-                            current_reasoning = agent_response_extra_data['reasoning']
-                            current_solution = f"Result: {current_result}\nReasoning: {current_reasoning}" if current_reasoning else f"Result: {current_result}"
+                            current_agent_result = agent_response_extra_data['result']
+                            current_agent_reasoning = agent_response_extra_data['reasoning']
+                            current_solution = f"Result: {current_agent_result}\nReasoning: {current_agent_reasoning}" if current_agent_reasoning else f"Result: {current_agent_result}"
                             logger.info(f"| ✅ Phase 1 completed - trainable variables updated")
                         else:
                             logger.info(f"| ℹ️ Phase 1: No trainable variables were updated")
